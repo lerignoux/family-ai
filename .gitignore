@@ -3,3 +3,6 @@ coqui-tts/models/**/model_file.pth
 coqui-tts/output/*.mp3
 coqui-tts/output/*.wav
 coqui-tts/__pycache__
+
+ollama/models/blobs
+ollama/models/manifests

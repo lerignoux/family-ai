@@ -44,7 +44,7 @@ services:
     networks:
       - personal-ai
     volumes:
-      - ~/projects/ollama_models:/root/.ollama/models
+      - ./ollama/models:/root/.ollama/models
     ports:
       - 5175:11434
     restart: always
