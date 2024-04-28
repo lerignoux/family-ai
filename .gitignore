@@ -2,3 +2,4 @@ coqui-tts/models/**/config.json
 coqui-tts/models/**/model_file.pth
 coqui-tts/output/*.mp3
 coqui-tts/output/*.wav
+coqui-tts/__pycache__
