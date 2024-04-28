@@ -1,0 +1,67 @@
+services:
+  personal-ai:
+    container_name: personal-ai
+    build:
+      context: ./personal-ai
+    networks:
+      - personal-ai
+    volumes:
+      - ./personal-ai:/personal-ai
+    ports:
+      - 5173:5173
+    restart: always
+
+  coqui-tts:
+    container_name: coqui-tts
+    build:
+      context: ./coqui-tts
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['1']
+              capabilities: [gpu]
+    networks:
+      - personal-ai
+    volumes:
+      - ./coqui-tts:/tts
+      - ./coqui-tts/models:/root/.local/share/tts
+    ports:
+      - 5174:80
+    restart: always
+
+  ollama:
+    container_name: ollama
+    image: ollama/ollama:latest
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - personal-ai
+    volumes:
+      - ~/projects/ollama_models:/root/.ollama/models
+    ports:
+      - 5175:11434
+    restart: always
+
+  nginx:
+    container_name: nginx
+    image: nginx:stable
+    networks:
+      - personal-ai
+    depends_on:
+      - personal-ai
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certificates:/etc/certificates
+    ports:
+      - 8920:443
+    restart: always
+
+networks:
+  personal-ai:
