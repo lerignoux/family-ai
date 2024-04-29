@@ -12,10 +12,10 @@ open http://localhost:8080
 The personal assistant web app.
 
 ## whisper:
-A speech to text utility
+A speech to text utility using [whisper](https://github.com/openai/whisper)
 
 ## Coqui TTS:
-A text to speech utility
+A text to speech utility using [coqui TTS](https://github.com/coqui-ai/TTS)
 
 ### Api usage:
 see Swagger available at `http://localhost:5174/docs#`
