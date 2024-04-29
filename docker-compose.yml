@@ -49,6 +49,25 @@ services:
       - 5175:11434
     restart: always
 
+  whisper:
+    container_name: whisper
+    build:
+      context: ./whisper
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['1']
+              capabilities: [gpu]
+    networks:
+      - personal-ai
+    volumes:
+      - ./whisper:/stt
+    ports:
+      - 5176:80
+    restart: always
+
   nginx:
     container_name: nginx
     image: nginx:stable
