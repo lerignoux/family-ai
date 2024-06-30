@@ -82,7 +82,7 @@ def get_llm_response(text: str) -> str:
     return response
 
 
-@app.post("/chat")
+@app.post("/ollama")
 def read(chat: Chat):
     """
     Process the given input into audio convert in mp3 and returns it as a file.
