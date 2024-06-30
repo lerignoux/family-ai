@@ -6,6 +6,7 @@ coqui-tts/__pycache__
 
 ollama/models/blobs
 ollama/models/manifests
+ollama/__pycache__
 
 whisper/output/*.mp3
 whisper/output/*.wav
