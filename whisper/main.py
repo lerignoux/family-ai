@@ -36,7 +36,7 @@ DEFAULT_MODEL = "small"
 STT_MODEL = whisper.load_model(DEFAULT_MODEL).to("cuda")
 
 
-@app.post("/uploadfile/")
+@app.post("/stt")
 async def create_upload_file(file: UploadFile):
     temp_file = f"/stt/input/input_{ObjectId()}_{file.filename}"
 
