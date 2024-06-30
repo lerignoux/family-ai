@@ -1,14 +1,10 @@
-FROM pytorch/pytorch:2.2.2-cuda11.8-cudnn8-runtime
-
-RUN apt-get update && apt-get install -y ffmpeg
+FROM lerignoux/base-ai-service
 
 RUN mkdir /stt
-WorkDir /stt
+WORKDIR /stt
 COPY . /stt
 
-RUN pip install --upgrade pip
-
 COPY requirements.txt /stt/requirements.txt
-RUN pip install -r /stt/requirements.txt
+RUN --mount=type=cache,target=/root/.cache python3 -m pip install -r /stt/requirements.txt
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80", "--reload"]

@@ -7,20 +7,37 @@ from bson import ObjectId
 
 import torch
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from TTS.api import TTS
+
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 log = logging.getLogger(__name__)
 
-app = FastAPI()
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+debug = os.getenv('DEBUG', '').lower() in ['1', 'true']
+
+
+app = FastAPI()
+origins = [
+    "http://localhost",
+    "http://localhost:5174",
+    "https://ai.shanghai.laurent.erignoux.fr:5174",
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 MODELS_FOLDER = "/root/.local/share/tts"
 DEFAULT_MODEL = "tts_models/en/ljspeech/fast_pitch"
 
-ApiTTS = TTS(model_name=DEFAULT_MODEL, progress_bar=False).to(device)
+ApiTTS = TTS(model_name=DEFAULT_MODEL, progress_bar=False).to('cuda')
 
 
 def convert_to_mp3(filename, delete=True):
@@ -37,18 +54,53 @@ def convert_to_mp3(filename, delete=True):
     return output
 
 
-@app.get("/tts")
-def read(sentence: str, model_name: str="tts_models/en/ljspeech/fast_pitch", vocoder_name="vocoder_models/en/ljspeech/hifigan_v2"):
+def clean_input(sentence):
+    return sentence.replace("\"", "").replace("'", "").replace("\n", "")
+
+
+class TTSRequest(BaseModel):
+    sentence: str
+    model: str = "tts_models/en/ljspeech/fast_pitch"
+    vocoder: str = "vocoder_models/en/ljspeech/hifigan_v2"
+
+
+@app.post("/tts")
+def readPost(query: TTSRequest):
     """
     Process the given input into audio convert in mp3 and returns it as a file.
     """
-    output = f"/tts/output/output_{ObjectId()}.wav"
+    output_wav = f"/tts/output/output_{ObjectId()}.wav"
+    sentence = clean_input(query.sentence)
+    log.debug(f"Requested to voice: `{sentence}`")
 
-    if model_name != DEFAULT_MODEL:
-        raise Exception("Custom models not supported")
+    ApiTTS.tts_to_file(text=sentence, file_path=output_wav)
+    output_mp3 = convert_to_mp3(output_wav)
 
-    ApiTTS.tts_to_file(text=sentence, file_path=output)
-    output_mp3 = convert_to_mp3(output)
+    os.remove(output_wav)
+    if not debug:
+        os.remove(output_mp3)
+    return FileResponse(output_mp3, media_type="audio/mpeg")
+
+
+@app.get("/tts")
+def readGet(
+    sentence: str,
+    model: str="tts_models/en/ljspeech/fast_pitch",
+    vocoder="vocoder_models/en/ljspeech/hifigan_v2"
+):
+    """
+    Process the given input into audio convert in mp3 and returns it as a file.
+    """
+    output_wav = f"/tts/output/output_{ObjectId()}.wav"
+    sentence = clean_input(sentence)
+    log.debug(f"Requested to voice: `{sentence}`")
+
+    ApiTTS.tts_to_file(text=sentence, file_path=output_wav)
+    output_mp3 = convert_to_mp3(output_wav)
+
+    os.remove(output_wav)
+    if not debug:
+        os.remove(output_mp3)
     return FileResponse(output_mp3, media_type="audio/mpeg")
 
 

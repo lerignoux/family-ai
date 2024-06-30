@@ -22,3 +22,9 @@ see Swagger available at `http://localhost:5174/docs#`
 
 ## ollama:
 A LLM Ai assistant
+
+## Build:
+Base image building:
+```
+docker build . -f Dockerfile -t lerignoux/base-ai-service
+```

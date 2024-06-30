@@ -1,20 +1,11 @@
 services:
-  personal-ai:
-    container_name: personal-ai
-    build:
-      context: ./personal-ai
-    networks:
-      - personal-ai
-    volumes:
-      - ./personal-ai:/personal-ai
-    ports:
-      - 5173:5173
-    restart: always
-
   coqui-tts:
     container_name: coqui-tts
     build:
       context: ./coqui-tts
+      args:
+        - http_proxy=http://192.168.2.3:6665
+        - https_proxy=http://192.168.2.3:6665
     deploy:
       resources:
         reservations:
@@ -25,28 +16,69 @@ services:
     networks:
       - personal-ai
     volumes:
-      - ./coqui-tts:/tts
       - ./coqui-tts/models:/root/.local/share/tts
+      - ./coqui-tts:/tts
     ports:
       - 5174:80
     restart: always
 
-  ollama:
-    container_name: ollama
-    image: ollama/ollama:latest
+  open-voice:
+    container_name: open-voice
+    build:
+      context: ./open-voice
+      args:
+        - http_proxy=http://192.168.2.3:6665
+        - https_proxy=http://192.168.2.3:6665
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
+              device_ids: ['1']
+              capabilities: [gpu]
+    networks:
+      - personal-ai
+    volumes:
+      - ./open-voice:/open-voice
+      - ./open-voice/models:/root/.local/share/tts
+      - ./open-voice/dicdir:/opt/conda/lib/python3.10/site-packages/unidic/dicdir
+    ports:
+      - 5173:80
+    restart: always
+
+  ollama:
+    container_name: ollama
+    image: ollama/ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['1']
               capabilities: [gpu]
     networks:
       - personal-ai
     volumes:
       - ./ollama/models:/root/.ollama/models
     ports:
-      - 5175:11434
+      - 11434:11434
+    restart: always
+
+  ollama-api:
+    container_name: ollama-api
+    depends_on:
+      - ollama
+    build:
+      context: ./ollama
+      args:
+        - http_proxy=http://192.168.2.3:6665
+        - https_proxy=http://192.168.2.3:6665
+    networks:
+      - personal-ai
+    volumes:
+      - ./ollama:/ollama
+    ports:
+      - 5175:80
     restart: always
 
   whisper:
@@ -68,13 +100,76 @@ services:
       - 5176:80
     restart: always
 
+  argos-translate:
+    container_name: argos-translate
+    build:
+      context: ./argos-translate
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['1']
+              capabilities: [gpu]
+    networks:
+      - personal-ai
+    ports:
+      - 5000:80
+    volumes:
+      - ./argos-translate:/argos-translate
+      - ./argos-translate/local:/home/libretranslate/.local
+      - ./argos-translate/db:/app/db
+    environment:
+      - ARGOS_LANGUAGES=en,fr,zh,es
+
+  comfy:
+    container_name: comfy
+    build:
+      context: ./comfy
+      args:
+        - http_proxy=http://192.168.2.3:6665
+        - https_proxy=http://192.168.2.3:6665
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['0']
+              capabilities: [gpu]
+    volumes:
+      - ./comfy/models/:/ComfyUI/models/
+      - ./comfy/output:/ComfyUI/output
+      - ./comfy/custom_nodes:/ComfyUI/custom_nodes
+    ports:
+      - 5177:8188
+    restart: always
+    networks:
+      - personal-ai
+
+  app:
+    container_name: app
+    build:
+      context: ./app
+    networks:
+      - personal-ai
+    depends_on:
+      - ollama-api
+      - whisper
+      - argos-translate
+      - coqui-tts
+    volumes:
+      - ./app:/app
+    ports:
+      - 9000:9000
+    restart: always
+
   nginx:
     container_name: nginx
     image: nginx:stable
     networks:
       - personal-ai
     depends_on:
-      - personal-ai
+      - app
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./certificates:/etc/certificates

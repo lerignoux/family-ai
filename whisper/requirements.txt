@@ -1,8 +1,7 @@
-openai-whisper
+openai-whisper==20231117
 aiofiles~=23.2.1
 bson~=0.5.10
-openai-whisper
 fastapi~=0.110.0
-pydantic
-python-multipart
-uvicorn
+pydantic~=2.7.2
+python-multipart~=0.0.9
+uvicorn~=0.30.0

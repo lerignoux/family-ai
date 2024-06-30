@@ -10,3 +10,9 @@ ollama/models/manifests
 whisper/output/*.mp3
 whisper/output/*.wav
 whisper/__pycache__
+
+comfy/output/*.png
+comfy/custom_nodes/__pycache__
+comfy/models/**/*.safetensors
+comfy/models/**/*.pth
+comfy/models/**/*.pt
