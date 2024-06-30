@@ -90,7 +90,7 @@ services:
     networks:
       - personal-ai
     ports:
-      - 5000:80
+      - 5177:80
     volumes:
       - ./argos-translate:/argos-translate
       - ./argos-translate/local:/home/libretranslate/.local
