@@ -24,8 +24,8 @@ log = logging.getLogger(__name__)
 app = FastAPI()
 origins = [
     "http://localhost",
-    "http://localhost:5175",
-    "https://ai.shanghai.laurent.erignoux.fr:5175",
+    "http://localhost:9000",
+    "https://ai.shanghai.laurent.erignoux.fr:9443",
 ]
 app.add_middleware(
     CORSMiddleware,
