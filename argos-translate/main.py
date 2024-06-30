@@ -7,7 +7,7 @@ from bson import ObjectId
 import argostranslate.package
 import argostranslate.translate
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 log = logging.getLogger(__name__)
