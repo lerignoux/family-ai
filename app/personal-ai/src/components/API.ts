@@ -8,7 +8,8 @@ export function textToSpeech(text: string, callback: textToSpeechCallback) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sentence: text }),
   };
-  fetch('http://localhost:5174/tts', requestOptions)
+  // fetch('http://localhost:5174/tts', requestOptions)
+  fetch('https://ai.shanghai.laurent.erignoux.fr:9443/tts', requestOptions)
     .then((response) => response.blob())
     .then((audioBlob) => {
       console.log('Audio fetched');
@@ -35,7 +36,8 @@ export function queryAi(
       stream: false,
     }),
   };
-  fetch('http://localhost:5175/chat', requestOptions)
+  // fetch('http://localhost:5175/chat', requestOptions)
+  fetch('https://ai.shanghai.laurent.erignoux.fr:9443/ollama', requestOptions)
     .then((response) => response.json())
     .then((data) => {
       console.log(`Ai answer: "${data.response}"`);
@@ -56,7 +58,8 @@ export function speechToText(blob: Blob, callback: speechToTextCallback) {
     method: 'POST',
     body: formData,
   };
-  fetch('http://localhost:5176/uploadfile', requestOptions)
+  //fetch('http://localhost:5176/uploadfile', requestOptions)
+  fetch('https://ai.shanghai.laurent.erignoux.fr:9443/stt', requestOptions)
     .then((response) => response.json())
     .then((data) => {
       console.log(`Decoded: ${data.result}`);
@@ -81,7 +84,8 @@ export function translate(
       api_key: '',
     }),
   };
-  fetch('http://localhost:5175/chat', requestOptions)
+  //fetch('http://localhost:5175/chat', requestOptions)
+  fetch('https://ai.shanghai.laurent.erignoux.fr:9443/translate', requestOptions)
     .then((response) => response.json())
     .then((data) => {
       console.log(`Ai answer: "${data.response}"`);
