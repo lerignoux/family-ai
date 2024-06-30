@@ -11,6 +11,9 @@ whisper/output/*.mp3
 whisper/output/*.wav
 whisper/__pycache__
 
+argos-translate/local/*/**
+argos-translate/__pycache__
+
 comfy/output/*.png
 comfy/custom_nodes/__pycache__
 comfy/models/**/*.safetensors

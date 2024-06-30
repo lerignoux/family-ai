@@ -1,0 +1,5 @@
+argostranslate~=1.9.6
+bson~=0.5.10
+fastapi~=0.110.0
+pydantic~=2.7.2
+uvicorn~=0.30.0
