@@ -22,30 +22,6 @@ services:
       - 5174:80
     restart: always
 
-  open-voice:
-    container_name: open-voice
-    build:
-      context: ./open-voice
-      args:
-        - http_proxy=http://192.168.2.3:6665
-        - https_proxy=http://192.168.2.3:6665
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ['1']
-              capabilities: [gpu]
-    networks:
-      - personal-ai
-    volumes:
-      - ./open-voice:/open-voice
-      - ./open-voice/models:/root/.local/share/tts
-      - ./open-voice/dicdir:/opt/conda/lib/python3.10/site-packages/unidic/dicdir
-    ports:
-      - 5173:80
-    restart: always
-
   ollama:
     container_name: ollama
     image: ollama/ollama
