@@ -76,9 +76,6 @@ def readPost(query: TTSRequest):
     ApiTTS.tts_to_file(text=sentence, file_path=output_wav)
     output_mp3 = convert_to_mp3(output_wav)
 
-    os.remove(output_wav)
-    if not debug:
-        os.remove(output_mp3)
     return FileResponse(output_mp3, media_type="audio/mpeg")
 
 
@@ -98,9 +95,6 @@ def readGet(
     ApiTTS.tts_to_file(text=sentence, file_path=output_wav)
     output_mp3 = convert_to_mp3(output_wav)
 
-    os.remove(output_wav)
-    if not debug:
-        os.remove(output_mp3)
     return FileResponse(output_mp3, media_type="audio/mpeg")
 
 
