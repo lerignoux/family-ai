@@ -16,7 +16,8 @@ argos-translate/local/*/**
 argos-translate/__pycache__
 
 comfy/output/*.png
-comfy/custom_nodes/__pycache__
+comfy/custom_nodes
+comfy/storage
 comfy/models/**/*.safetensors
 comfy/models/**/*.pth
 comfy/models/**/*.pt
