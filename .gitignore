@@ -20,3 +20,5 @@ comfy/custom_nodes/__pycache__
 comfy/models/**/*.safetensors
 comfy/models/**/*.pth
 comfy/models/**/*.pt
+
+certificates
