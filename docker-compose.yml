@@ -1,27 +1,4 @@
 services:
-  coqui-tts:
-    container_name: coqui-tts
-    build:
-      context: ./coqui-tts
-      args:
-        - http_proxy=http://192.168.2.3:6665
-        - https_proxy=http://192.168.2.3:6665
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ["1"]
-              capabilities: [gpu]
-    networks:
-      - personal-ai
-    volumes:
-      - ./coqui-tts/models:/root/.local/share/tts
-      - ./coqui-tts:/tts
-    ports:
-      - 5174:80
-    restart: always
-
   ollama:
     container_name: ollama
     image: ollama/ollama
@@ -57,10 +34,10 @@ services:
       - 5175:80
     restart: always
 
-  whisper:
-    container_name: whisper
+  tts:
+    container_name: tts
     build:
-      context: ./whisper
+      context: ./tts
     deploy:
       resources:
         reservations:
@@ -71,7 +48,8 @@ services:
     networks:
       - personal-ai
     volumes:
-      - ./whisper:/stt
+      - ./tts:/tts
+      - ./tts/models:/root/.local/share/tts/
     ports:
       - 5176:80
     restart: always
@@ -130,9 +108,8 @@ services:
       - personal-ai
     depends_on:
       - ollama-api
-      - whisper
+      - tts
       - argos-translate
-      - coqui-tts
     volumes:
       - ./app:/app
     ports:

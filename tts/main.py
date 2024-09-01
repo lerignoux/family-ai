@@ -1,16 +1,17 @@
+import aiofiles
 import logging
 import os
-from typing import Union
 import subprocess
 import sys
-from bson import ObjectId
+from typing import Union, Annotated
 
-import torch
-from fastapi import FastAPI
+from bson import ObjectId
+from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from TTS.api import TTS
+import whisper
 
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
@@ -34,10 +35,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# FIXME Need to check the quality/speed we want.
+DEFAULT_MODEL = "small"
+STT_MODEL = whisper.load_model(DEFAULT_MODEL).to("cuda")
 MODELS_FOLDER = "/root/.local/share/tts"
 DEFAULT_MODEL = "tts_models/en/ljspeech/fast_pitch"
 
+
 ApiTTS = TTS(model_name=DEFAULT_MODEL, progress_bar=False).to('cuda')
+
+
+class TTSRequest(BaseModel):
+    sentence: str
+    model: str = "tts_models/en/ljspeech/fast_pitch"
+    vocoder: str = "vocoder_models/en/ljspeech/hifigan_v2"
 
 
 def convert_to_mp3(filename, delete=True):
@@ -58,10 +70,19 @@ def clean_input(sentence):
     return sentence.replace("\"", "").replace("'", "").replace("\n", "")
 
 
-class TTSRequest(BaseModel):
-    sentence: str
-    model: str = "tts_models/en/ljspeech/fast_pitch"
-    vocoder: str = "vocoder_models/en/ljspeech/hifigan_v2"
+@app.post("/stt")
+async def create_upload_file(file: UploadFile):
+    temp_file = f"/tts/input/input_{ObjectId()}_{file.filename}"
+
+    async with aiofiles.open(temp_file, 'wb') as out_file:
+        content = await file.read()
+        await out_file.write(content)
+
+    result = STT_MODEL.transcribe(temp_file)
+
+    if not debug:
+        os.remove(temp_file)
+    return {"result": result["text"]}
 
 
 @app.post("/tts")

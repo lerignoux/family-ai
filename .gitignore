@@ -1,17 +1,15 @@
-coqui-tts/models/**/config.json
-coqui-tts/models/**/model_file.pth
-coqui-tts/output/*.mp3
-coqui-tts/output/*.wav
-coqui-tts/__pycache__
+
 
 ollama/models/blobs
 ollama/models/manifests
 ollama/__pycache__
 
-whisper/output/*.mp3
-whisper/output/*.wav
-whisper/input
-whisper/__pycache__
+tts/input
+tts/models/**/config.json
+tts/models/**/model_file.pth
+tts/output/*.mp3
+tts/output/*.wav
+tts/__pycache__
 
 argos-translate/local/*/**
 argos-translate/__pycache__
