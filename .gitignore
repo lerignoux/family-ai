@@ -10,6 +10,7 @@ ollama/__pycache__
 
 whisper/output/*.mp3
 whisper/output/*.wav
+whisper/input
 whisper/__pycache__
 
 argos-translate/local/*/**
