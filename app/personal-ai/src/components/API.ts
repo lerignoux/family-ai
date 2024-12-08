@@ -64,32 +64,37 @@ export function speechToText(blob: Blob, callback: speechToTextCallback) {
     .then((data) => {
       console.log(`Decoded: ${data.result}`);
       callback(data.result);
+    })
+    .catch((error) => {
+      console.log(error);
     });
 }
 
-export function translate(
+export function translateString(
   prompt: string,
-  language: String,
+  language_src: string,
+  language_dst: string,
   callback: queryAiCallback
 ) {
+  const params = new URLSearchParams({
+    sentence: prompt,
+    from_code: language_src,
+    to_code: language_dst,
+  }).toString();
   const requestOptions = {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      source: 'auto',
-      target: language,
-      format: 'text',
-      q: prompt,
-      alternatives: 1,
-      api_key: '',
-    }),
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: JSON.stringify({}),
   };
   //fetch('http://localhost:5175/chat', requestOptions)
-  fetch('https://ai.shanghai.laurent.erignoux.fr:9443/translate', requestOptions)
+  fetch(
+    'https://ai.shanghai.laurent.erignoux.fr:9443/translate?' + params,
+    requestOptions
+  )
     .then((response) => response.json())
     .then((data) => {
-      console.log(`Ai answer: "${data.response}"`);
-      callback(data.response);
+      console.log(`Ai answer: "${data.result}"`);
+      callback(data.result);
     });
 }
 

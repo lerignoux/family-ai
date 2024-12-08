@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { translate, textToSpeech, speechToText } from '../components/API';
+import { translateString, textToSpeech, speechToText } from '../components/API';
 import { playAudio } from '../components/utils';
 
 const userInput = ref('Who are you');
@@ -12,7 +12,8 @@ const models = ref([
   { label: 'Phi', value: 'phi' },
   { label: 'Lamma2 (Uncensonred)', value: 'llama2-uncensored:7b' },
 ]);
-const language = ref('English');
+const language_src = ref('en');
+const language_dst = ref('fr');
 const languages = ref([
   { label: 'English', value: 'en' },
   { label: 'French', value: 'fr' },
@@ -48,17 +49,18 @@ function handleAiAnswer(response: string) {
   }
 }
 
-function translate(text: string, language: string, model: string) {
-  translate(text, language, handleAiAnswer);
-}
-
 function translateInput() {
-  translate(userInput.value, language.value, model.value);
+  translateString(
+    userInput.value,
+    language_src.value,
+    language_dst.value,
+    handleAiAnswer
+  );
 }
 
 function handleSpeechToText(text: string) {
   userInput.value = text;
-  translate(text, language.value, model.value);
+  translateString(text, language_src.value, language_dst.value, handleAiAnswer);
 }
 </script>
 
@@ -81,11 +83,25 @@ function handleSpeechToText(text: string) {
       </q-select>
       <q-select
         standout
-        v-model="language"
+        v-model="language_src"
         emit-value
         :options="languages"
         dense
-        label="Language:"
+        label="From:"
+      >
+        <template v-slot:append>
+          <q-avatar>
+            <img src="ai_logo.png" />
+          </q-avatar>
+        </template>
+      </q-select>
+      <q-select
+        standout
+        v-model="language_dst"
+        emit-value
+        :options="languages"
+        dense
+        label="To:"
       >
         <template v-slot:append>
           <q-avatar>
