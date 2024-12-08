@@ -110,14 +110,9 @@ export function queryImage(
   const requestOptions = {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: model,
-      prompt: prompt,
-      format: 'json',
-      stream: false,
-    }),
+    body: JSON.stringify({}),
   };
-  fetch('http://localhost:8188/chat', requestOptions)
+  fetch('http://comfy.shanghai.laurent.erignoux:9443', requestOptions)
     .then((response) => response.json())
     .then((data) => {
       console.log(`Ai answer: "${data.response}"`);

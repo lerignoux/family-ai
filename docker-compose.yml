@@ -98,11 +98,11 @@ services:
               device_ids: ["0"]
               capabilities: [gpu]
     volumes:
-      - ./comfy/models/:/ComfyUI/models/
+      - ~/app/models/:/ComfyUI/models/
       - ./comfy/output:/ComfyUI/output
       - ./comfy/custom_nodes:/ComfyUI/custom_nodes
     ports:
-      - 5177:8188
+      - 8188:8188
     restart: always
     networks:
       - personal-ai
