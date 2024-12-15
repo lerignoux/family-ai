@@ -6,7 +6,7 @@ import sys
 from typing import Union, Annotated
 
 from bson import ObjectId
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -50,6 +50,7 @@ class TTSRequest(BaseModel):
     sentence: str
     model: str = "tts_models/en/ljspeech/fast_pitch"
     vocoder: str = "vocoder_models/en/ljspeech/hifigan_v2"
+    language: str = "en"
 
 
 def convert_to_mp3(filename, delete=True):
@@ -94,6 +95,9 @@ def readPost(query: TTSRequest):
     sentence = clean_input(query.sentence)
     log.debug(f"Requested to voice: `{sentence}`")
 
+    if hasattr(query, 'language') and query.language != 'en':
+            raise HTTPException(status_code=400, detail="Only english is supported yet.")
+
     ApiTTS.tts_to_file(text=sentence, file_path=output_wav)
     output_mp3 = convert_to_mp3(output_wav)
 
@@ -103,6 +107,7 @@ def readPost(query: TTSRequest):
 @app.get("/tts")
 def readGet(
     sentence: str,
+    language: str="en",
     model: str="tts_models/en/ljspeech/fast_pitch",
     vocoder="vocoder_models/en/ljspeech/hifigan_v2"
 ):
