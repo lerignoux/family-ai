@@ -5,13 +5,6 @@ import { playAudio } from '../components/utils';
 
 const userInput = ref('Who are you');
 const aiTranslation = ref('');
-const model = ref('mistral:7b');
-const models = ref([
-  { label: 'Mistral', value: 'mistral:7b' },
-  { label: 'Gemma', value: 'gemma:7b' },
-  { label: 'Phi', value: 'phi' },
-  { label: 'Lamma2 (Uncensonred)', value: 'llama2-uncensored:7b' },
-]);
 const language_src = ref('en');
 const language_dst = ref('fr');
 const languages = ref([
@@ -21,7 +14,8 @@ const languages = ref([
   { label: 'Spanish', value: 'es' },
   { label: 'Japanese', value: 'jp' },
 ]);
-const autoRead = ref(true);
+const autoRead = ref(false);
+const recording = ref(false);
 
 var audioRecorder: MediaRecorder;
 var audioDevice = navigator.mediaDevices.getUserMedia({ audio: true });
@@ -34,18 +28,24 @@ audioDevice.then((stream) => {
 });
 
 function recordAudio() {
+  recording.value = true;
   audioRecorder.start();
 }
 
 function stopAudio() {
   audioRecorder.stop();
+  recording.value = false;
 }
 
 function handleAiAnswer(response: string) {
   console.log(`Ai answered "${response}"`);
   aiTranslation.value = response;
   if (autoRead.value) {
-    textToSpeech(response, playAudio);
+    let language = 'en';
+    if (language_dst.value != 'en') {
+      language = `${language_dst.value}-${language_dst.value}`;
+    }
+    textToSpeech(response, language, playAudio);
   }
 }
 
@@ -67,20 +67,6 @@ function handleSpeechToText(text: string) {
 <template>
   <div class="translator">
     <div class="translate-options">
-      <q-select
-        standout
-        v-model="model"
-        emit-value
-        :options="models"
-        dense
-        label="Model:"
-      >
-        <template v-slot:append>
-          <q-avatar>
-            <img src="ai_logo.png" />
-          </q-avatar>
-        </template>
-      </q-select>
       <q-select
         standout
         v-model="language_src"
@@ -120,7 +106,7 @@ function handleSpeechToText(text: string) {
     </div>
 
     <div class="translate">
-      <div class="q-pa-md" style="max-width: 600px">
+      <div class="q-pa-md translate-source" style="width: 400px">
         <q-input
           v-model="userInput"
           v-on:keyup.enter="translateInput"
@@ -129,9 +115,22 @@ function handleSpeechToText(text: string) {
           hint="Your input"
         />
       </div>
+
       <div class="translate-actions">
-        <div class="chat-action" @mousedown="recordAudio" @mouseup="stopAudio">
-          <q-btn id="recordButton" round color="primary" icon="mic" size="xl" />
+        <div
+          class="chat-action"
+          @touchstart="recordAudio"
+          @touchend="stopAudio"
+          @mousedown="recordAudio"
+          @mouseup="stopAudio"
+        >
+          <q-btn
+            id="recordButton"
+            round
+            :color="recording ? 'secondary' : 'primary'"
+            icon="mic"
+            size="xl"
+          />
         </div>
         <q-btn
           class="translate-action"
@@ -143,7 +142,8 @@ function handleSpeechToText(text: string) {
           size="xl"
         />
       </div>
-      <div class="q-pa-md" style="max-width: 600px">
+
+      <div class="q-pa-md translate-result" style="width: 400px">
         <q-input
           v-model="aiTranslation"
           filled
@@ -188,14 +188,7 @@ function handleSpeechToText(text: string) {
   padding: 10px;
   display: flex;
   flex-direction: row;
-  flex-wrap: no-wrap;
   align-items: center;
   justify-content: center;
-
-  text-area {
-    background-color: $grey-5;
-    min-width: 50%;
-    min-height: 50%;
-  }
 }
 </style>

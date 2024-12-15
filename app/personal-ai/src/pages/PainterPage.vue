@@ -27,7 +27,7 @@ function stopAudio() {
 }
 
 function handleAiAnswer(image: any) {
-  console.log('Ai generated an image.');
+  console.log(`Ai generated an image: ${image}`);
 }
 
 function handleUserQuery(query: string, model: string) {

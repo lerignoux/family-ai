@@ -2,11 +2,24 @@ interface textToSpeechCallback {
   (audioBlob: Blob): void;
 }
 
-export function textToSpeech(text: string, callback: textToSpeechCallback) {
+export function textToSpeech(
+  text: string,
+  language: string,
+  callback: textToSpeechCallback
+) {
+  const params: any = { sentence: text };
+  if (language !== null) {
+    if (language != 'en') {
+      console.log('Only english tts is supported');
+    } else {
+      params.language = language;
+    }
+  }
+
   const requestOptions = {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sentence: text }),
+    body: JSON.stringify(params),
   };
   // fetch('http://localhost:5174/tts', requestOptions)
   fetch('https://ai.shanghai.laurent.erignoux.fr:9443/tts', requestOptions)
@@ -112,7 +125,7 @@ export function queryImage(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({}),
   };
-  fetch('http://comfy.shanghai.laurent.erignoux:9443', requestOptions)
+  fetch('https://comfy.shanghai.laurent.erignoux.fr:9443', requestOptions)
     .then((response) => response.json())
     .then((data) => {
       console.log(`Ai answer: "${data.response}"`);

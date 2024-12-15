@@ -20,6 +20,7 @@ const chat = ref([
   },
 ]);
 const autoRead = ref(true);
+const recording = ref(false);
 
 var audioRecorder: MediaRecorder;
 var audioDevice = navigator.mediaDevices.getUserMedia({ audio: true });
@@ -32,10 +33,12 @@ audioDevice.then((stream) => {
 });
 
 function recordAudio() {
+  recording.value = true;
   audioRecorder.start();
 }
 
 function stopAudio() {
+  recording.value = false;
   audioRecorder.stop();
 }
 
@@ -49,11 +52,14 @@ function handleAiAnswer(response: string) {
     status: 'sent',
   });
   if (autoRead.value) {
-    textToSpeech(response, playAudio);
+    textToSpeech(response, 'en', playAudio);
   }
 }
 
 function handleUserQuery(query: string, model: string) {
+  if (query == '') {
+    console.log('Empty user query, skipping.');
+  }
   chat.value.push({
     name: 'user',
     avatar: 'https://cdn.quasar.dev/img/avatar2.jpg',
@@ -114,9 +120,22 @@ function handleUserInput() {
       >
       </q-chat-message>
     </div>
+
     <div class="chat-actions">
-      <div class="chat-action" @mousedown="recordAudio" @mouseup="stopAudio">
-        <q-btn id="recordButton" round color="primary" icon="mic" size="xl" />
+      <div
+        class="chat-action"
+        @touchstart="recordAudio"
+        @touchend="stopAudio"
+        @mousedown="recordAudio"
+        @mouseup="stopAudio"
+      >
+        <q-btn
+          id="recordButton"
+          round
+          :color="recording ? 'secondary' : 'primary'"
+          icon="mic"
+          size="xl"
+        />
       </div>
       <q-input
         class="chat-box chat-action"
@@ -142,6 +161,7 @@ function handleUserInput() {
 .assistant {
   width: 80%;
   height: 100%;
+  max-height: 100%;
   margin-left: 10%;
   margin-right: 10%;
   display: flex;
@@ -164,10 +184,16 @@ function handleUserInput() {
   flex-wrap: no-wrap;
   justify-content: space-around;
   gap: 20px;
+  height: 72px;
 }
 
 .chat {
+  display: flex;
+  flex-direction: column;
   padding: 10px;
+  flex-grow: 1;
+  max-height: 50%;
+  overflow-y: auto;
 }
 
 .chat-box {
