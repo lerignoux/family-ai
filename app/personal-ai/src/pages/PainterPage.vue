@@ -3,10 +3,12 @@ import { ref } from 'vue';
 import { speechToText, queryImage } from '../components/API';
 
 const userInput = ref('a cosmonaut riding a horse on the moon.');
-const model = ref('epicrealismXL_v5Ultimate');
+const model = ref('epicrealismXL_v5Ultimate.safetensors');
 const models = ref([
-  { label: 'Epic Realism', value: 'epicrealismXL_v5Ultimate' },
+  { label: 'Epic Realism', value: 'epicrealismXL_v5Ultimate.safetensors' },
+  { label: 'Flux Dev', value: 'flux1-dev-fp8_comfy.safetensors' },
 ]);
+const imageUrl = ref('');
 
 var audioRecorder: MediaRecorder;
 var audioDevice = navigator.mediaDevices.getUserMedia({ audio: true });
@@ -28,10 +30,11 @@ function stopAudio() {
 
 function handleAiAnswer(image: any) {
   console.log(`Ai generated an image: ${image}`);
+  imageUrl.value = URL.createObjectURL(image);
 }
 
-function handleUserQuery(query: string, model: string) {
-  queryImage(query, model, handleAiAnswer);
+async function handleUserQuery(query: string, model: string) {
+  await queryImage(query, model, handleAiAnswer);
 }
 
 function handleSpeechToText(text: string) {
@@ -83,6 +86,11 @@ function handleUserInput() {
         color="primary"
         icon="message"
         size="xl"
+      />
+      <q-img
+        :src="imageUrl"
+        spinner-color="white"
+        style="height: 512px; max-width: 512px"
       />
     </div>
   </div>

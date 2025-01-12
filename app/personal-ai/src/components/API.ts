@@ -1,3 +1,6 @@
+import { ComfyUIClient } from './comfy/client';
+import type { Prompt } from './comfy/types';
+
 interface textToSpeechCallback {
   (audioBlob: Blob): void;
 }
@@ -115,20 +118,90 @@ interface queryImageCallback {
   (image: any): void;
 }
 
-export function queryImage(
+export async function queryImage(
   prompt: string,
   model: string,
   callback: queryImageCallback
 ) {
-  const requestOptions = {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({}),
+  const promptData: Prompt = {
+    '3': {
+      class_type: 'KSampler',
+      inputs: {
+        cfg: 8,
+        denoise: 1,
+        latent_image: ['5', 0],
+        model: ['4', 0],
+        negative: ['7', 0],
+        positive: ['6', 0],
+        sampler_name: 'euler',
+        scheduler: 'normal',
+        seed: Math.random(),
+        steps: 20,
+      },
+    },
+    '4': {
+      class_type: 'CheckpointLoaderSimple',
+      inputs: {
+        ckpt_name: model,
+      },
+    },
+    '5': {
+      class_type: 'EmptyLatentImage',
+      inputs: {
+        batch_size: 1,
+        height: 512,
+        width: 512,
+      },
+    },
+    '6': {
+      class_type: 'CLIPTextEncode',
+      inputs: {
+        clip: ['4', 1],
+        text: prompt,
+      },
+    },
+    '7': {
+      class_type: 'CLIPTextEncode',
+      inputs: {
+        clip: ['4', 1],
+        text: 'bad hands',
+      },
+    },
+    '8': {
+      class_type: 'VAEDecode',
+      inputs: {
+        samples: ['3', 0],
+        vae: ['4', 2],
+      },
+    },
+    '9': {
+      class_type: 'SaveImage',
+      inputs: {
+        filename_prefix: 'ComfyUI',
+        images: ['8', 0],
+      },
+    },
   };
-  fetch('https://comfy.shanghai.laurent.erignoux.fr:9443', requestOptions)
-    .then((response) => response.json())
-    .then((data) => {
-      console.log(`Ai answer: "${data.response}"`);
-      callback(data.response);
-    });
+
+  // Set the text prompt for our positive CLIPTextEncode
+  promptData['6'].inputs.text = prompt;
+
+  // Set the seed for our KSampler node
+  promptData['3'].inputs.seed = Math.random();
+
+  // Create client
+  const serverAddress = 'ai.shanghai.laurent.erignoux.fr:9443/comfy';
+  const clientId = 'baadbabe-b00b-4206-9420-deadd00d1337';
+  const client = new ComfyUIClient(serverAddress, clientId);
+
+  // Connect to server
+  await client.connect();
+
+  // Generate images
+  const images = await client.getImages(promptData);
+
+  // Disconnect
+  await client.disconnect();
+
+  callback(images['9'][0].blob);
 }
