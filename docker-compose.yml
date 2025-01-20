@@ -11,11 +11,11 @@ services:
               capabilities: [gpu]
     networks:
       - personal-ai
-    volumes:
-      - ./ollama/models:/root/.ollama/models
     ports:
       - 11434:11434
     restart: always
+    volumes:
+      - ./ollama/models:/root/.ollama/models
 
   ollama-api:
     container_name: ollama-api
@@ -35,11 +35,11 @@ services:
               capabilities: [gpu]
     networks:
       - personal-ai
-    volumes:
-      - ./ollama:/ollama
     ports:
       - 5175:80
     restart: always
+    volumes:
+      - ./ollama:/ollama
 
   tts:
     container_name: tts
@@ -54,12 +54,12 @@ services:
               capabilities: [gpu]
     networks:
       - personal-ai
-    volumes:
-      - ./tts:/tts
-      - ./tts/models:/root/.local/share/tts/
     ports:
       - 5176:80
     restart: always
+    volumes:
+      - ./tts:/tts
+      - ./tts/models:/root/.local/share/tts/
 
   argos-translate:
     container_name: argos-translate
@@ -72,6 +72,8 @@ services:
             - driver: nvidia
               device_ids: ["1"]
               capabilities: [gpu]
+    environment:
+      - ARGOS_LANGUAGES=en,fr,zh,es
     networks:
       - personal-ai
     ports:
@@ -80,8 +82,7 @@ services:
       - ./argos-translate:/argos-translate
       - ./argos-translate/local:/home/libretranslate/.local
       - ./argos-translate/db:/app/db
-    environment:
-      - ARGOS_LANGUAGES=en,fr,zh,es
+    restart: always
 
   comfy:
     container_name: comfy
@@ -97,45 +98,46 @@ services:
             - driver: nvidia
               device_ids: ["0"]
               capabilities: [gpu]
+    networks:
+      - personal-ai
+    ports:
+      - 8188:8188
+    restart: always
     volumes:
       - ~/app/models/:/ComfyUI/models/
       - ./comfy/output:/ComfyUI/output
       - ./comfy/custom_nodes:/ComfyUI/custom_nodes
-    ports:
-      - 8188:8188
-    restart: always
-    networks:
-      - personal-ai
 
   app:
     container_name: app
     build:
       context: ./app
-    networks:
-      - personal-ai
     depends_on:
+      - argos-translate
+      - comfy
       - ollama-api
       - tts
-      - argos-translate
-    volumes:
-      - ./app:/app
+    networks:
+      - personal-ai
     ports:
       - 9000:9000
     restart: always
+    volumes:
+      - ./app:/app
 
   nginx:
     container_name: nginx
+    depends_on:
+      - app
     image: nginx:stable
     networks:
       - personal-ai
-    depends_on:
-      - app
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./certificates:/etc/certificates
     ports:
       - 8920:443
     restart: always
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certificates:/etc/certificates
 
 networks:
   personal-ai:
