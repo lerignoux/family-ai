@@ -4,13 +4,8 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/',
     component: () => import('layouts/MainLayout.vue'),
-    children: [{ path: '', component: () => import('pages/IndexPage.vue') }],
-  },
-  {
-    path: '/translator',
-    component: () => import('layouts/MainLayout.vue'),
     children: [
-      { path: '', component: () => import('pages/TranslatorPage.vue') },
+      { path: '', component: () => import('pages/AssistantPage.vue') },
     ],
   },
   {
@@ -18,6 +13,13 @@ const routes: RouteRecordRaw[] = [
     component: () => import('layouts/MainLayout.vue'),
     children: [
       { path: '', component: () => import('pages/AssistantPage.vue') },
+    ],
+  },
+  {
+    path: '/translator',
+    component: () => import('layouts/MainLayout.vue'),
+    children: [
+      { path: '', component: () => import('pages/TranslatorPage.vue') },
     ],
   },
   {

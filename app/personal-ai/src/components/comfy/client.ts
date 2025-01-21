@@ -51,7 +51,7 @@ export class ComfyUIClient {
         resolve();
       });
 
-      this.ws.addEventListener('close', (event) => {
+      this.ws.addEventListener('close', () => {
         logger.info('Connection closed');
       });
 
@@ -305,14 +305,13 @@ export class ComfyUIClient {
     return json;
   }
 
-  async saveImages(response: ImagesResponse, outputDir: string) {
+  async saveImages(response: ImagesResponse) {
     for (const nodeId of Object.keys(response)) {
       for (const img of response[nodeId]) {
-        const arrayBuffer = await img.blob.arrayBuffer();
-
+        // const arrayBuffer = await img.blob.arrayBuffer();
         // const outputPath = join(outputDir, img.image.filename);
         // await writeFile(outputPath, Buffer.from(arrayBuffer));
-        console.log('File created');
+        console.log(`File ${img} created`);
       }
     }
   }

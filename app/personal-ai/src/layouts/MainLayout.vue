@@ -57,25 +57,25 @@ defineOptions({
 const pageLinksList: PageLinkProps[] = [
   {
     title: 'Assistant',
-    caption: 'Ai Assistant',
+    caption: 'How can I assist you today ?',
     icon: 'support_agent',
     link: 'assistant',
   },
   {
     title: 'Translator',
-    caption: 'Ai Translator',
+    caption: 'What do you want translated ?',
     icon: 'translate',
     link: 'translator',
   },
   {
     title: 'Painter',
-    caption: 'Ai Painter',
+    caption: 'Can I paint something for you ?',
     icon: 'palette',
     link: 'painter',
   },
   {
     title: 'StoryTeller',
-    caption: 'Story Teller',
+    caption: "Let's create a little story.",
     icon: 'escalator_warning',
     link: 'story_teller',
   },
