@@ -13,6 +13,8 @@ from pydantic import BaseModel
 from TTS.api import TTS
 import whisper
 
+# kokoro
+from kokoro.main import tts_to_file as kokoro_tts_to_file
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 log = logging.getLogger(__name__)
@@ -42,15 +44,15 @@ STT_MODEL = whisper.load_model(DEFAULT_MODEL).to("cuda")
 MODELS_FOLDER = "/root/.local/share/tts"
 DEFAULT_MODEL = "tts_models/en/ljspeech/fast_pitch"
 
-
 ApiTTS = TTS(model_name=DEFAULT_MODEL, progress_bar=False).to('cuda')
 
 
 class TTSRequest(BaseModel):
     sentence: str
-    model: str = "tts_models/en/ljspeech/fast_pitch"
+    model: str = "kokoro-82M"  # "tts_models/en/ljspeech/fast_pitch"
     vocoder: str = "vocoder_models/en/ljspeech/hifigan_v2"
     language: str = "en"
+
 
 
 def convert_to_mp3(filename, delete=True):
@@ -96,9 +98,13 @@ def readPost(query: TTSRequest):
     log.debug(f"Requested to voice: `{sentence}`")
 
     if hasattr(query, 'language') and query.language != 'en':
-            raise HTTPException(status_code=400, detail="Only english is supported yet.")
+        raise HTTPException(status_code=400, detail="Only english is supported yet.")
 
-    ApiTTS.tts_to_file(text=sentence, file_path=output_wav)
+    if query.model == "kokoro-82M":
+        kokoro_tts_to_file(text=sentence, file_path=output_wav)
+    else:
+        ApiTTS.tts_to_file(text=sentence, file_path=output_wav)
+
     output_mp3 = convert_to_mp3(output_wav)
 
     return FileResponse(output_mp3, media_type="audio/mpeg")

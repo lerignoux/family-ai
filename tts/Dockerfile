@@ -17,7 +17,7 @@ FROM python:3.10-slim
 LABEL authors="Laurent Erignoux lerignoux@gmail.com"
 
 ARG DEBIAN_FRONTEND=noninteractive
-RUN --mount=type=cache,target=/root/.cache/apt apt-get update && apt-get install -y --no-install-recommends ffmpeg
+RUN --mount=type=cache,target=/root/.cache/apt apt-get update && apt-get install -y --no-install-recommends ffmpeg espeak-ng
 
 # Copy the virtual environment from the first stage.
 COPY --from=build /venv /venv
