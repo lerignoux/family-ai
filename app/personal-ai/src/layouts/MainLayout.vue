@@ -26,6 +26,7 @@
           :key="link.title"
           v-bind="link"
         />
+        <q-separator />
         <EssentialLink
           v-for="link in refLinksList"
           :key="link.title"
@@ -55,20 +56,26 @@ const pageLinksList: PageLinkProps[] = [
   {
     title: 'Assistant',
     caption: 'Ai Assistant',
-    icon: 'school',
+    icon: 'support_agent',
     link: 'assistant',
   },
   {
     title: 'Translator',
     caption: 'Ai Translator',
-    icon: 'school',
+    icon: 'translate',
     link: 'translator',
   },
   {
     title: 'Painter',
     caption: 'Ai Painter',
-    icon: 'school',
+    icon: 'palette',
     link: 'painter',
+  },
+  {
+    title: 'StoryTeller',
+    caption: 'Story Teller',
+    icon: 'escalator_warning',
+    link: 'story_teller',
   },
 ];
 const refLinksList: EssentialLinkProps[] = [

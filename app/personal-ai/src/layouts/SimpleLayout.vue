@@ -14,6 +14,7 @@
         <q-route-tab to="/assistant" label="Assistant" />
         <q-route-tab to="/translator" label="Translator" />
         <q-route-tab to="/painter" label="Painter" />
+        <q-route-tab to="/story_teller" label="StoryTeller" />
       </q-tabs>
     </q-header>
 
