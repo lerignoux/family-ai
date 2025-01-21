@@ -8,26 +8,26 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/translator',
-    component: () => import('layouts/SimpleLayout.vue'),
+    component: () => import('layouts/MainLayout.vue'),
     children: [
       { path: '', component: () => import('pages/TranslatorPage.vue') },
     ],
   },
   {
     path: '/assistant',
-    component: () => import('layouts/SimpleLayout.vue'),
+    component: () => import('layouts/MainLayout.vue'),
     children: [
       { path: '', component: () => import('pages/AssistantPage.vue') },
     ],
   },
   {
     path: '/painter',
-    component: () => import('layouts/SimpleLayout.vue'),
+    component: () => import('layouts/MainLayout.vue'),
     children: [{ path: '', component: () => import('pages/PainterPage.vue') }],
   },
   {
     path: '/story_teller',
-    component: () => import('layouts/SimpleLayout.vue'),
+    component: () => import('layouts/MainLayout.vue'),
     children: [{ path: '', component: () => import('pages/StoryTeller.vue') }],
   },
   // Always leave this as last one,
