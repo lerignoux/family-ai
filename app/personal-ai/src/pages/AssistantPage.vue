@@ -207,5 +207,6 @@ function handleUserInput() {
 .chat-box {
   align-self: stretch;
   width: 100%;
+  min-width: 200px;
 }
 </style>

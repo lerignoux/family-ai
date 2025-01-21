@@ -199,4 +199,12 @@ function handleSpeechToText(text: string) {
   align-items: center;
   justify-content: center;
 }
+
+.translate-source {
+  min-width: 200px;
+}
+
+.translate-result {
+  min-width: 200px;
+}
 </style>

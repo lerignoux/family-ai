@@ -87,6 +87,7 @@ function handleUserInput() {
           size="xl"
         />
       </div>
+
       <q-input
         class="painting-box painting-action"
         outlined
@@ -144,5 +145,11 @@ function handleUserInput() {
 
 .painting {
   padding: 10px;
+}
+
+.painting-box {
+  align-self: stretch;
+  width: 100%;
+  min-width: 200px;
 }
 </style>
