@@ -10,6 +10,9 @@ const models = ref([
 ]);
 const imageUrl = ref('');
 
+const querying = ref(false);
+const recording = ref(false);
+
 var audioRecorder: MediaRecorder;
 var audioDevice = navigator.mediaDevices.getUserMedia({ audio: true });
 audioDevice.then((stream) => {
@@ -21,15 +24,19 @@ audioDevice.then((stream) => {
 });
 
 function recordAudio() {
+  recording.value = true;
+  querying.value = true;
   audioRecorder.start();
 }
 
 function stopAudio() {
   audioRecorder.stop();
+  recording.value = false;
 }
 
 function handleAiAnswer(image: any) {
   console.log(`Ai generated an image: ${image}`);
+  querying.value = false;
   imageUrl.value = URL.createObjectURL(image);
 }
 
@@ -43,6 +50,7 @@ function handleSpeechToText(text: string) {
 }
 
 function handleUserInput() {
+  querying.value = true;
   handleUserQuery(userInput.value, model.value);
 }
 </script>
@@ -69,7 +77,15 @@ function handleUserInput() {
     <div class="painting"></div>
     <div class="painting-actions">
       <div class="chat-action" @mousedown="recordAudio" @mouseup="stopAudio">
-        <q-btn id="recordButton" round color="primary" icon="mic" size="xl" />
+        <q-btn
+          id="recordButton"
+          round
+          :color="recording ? 'secondary' : 'primary'"
+          :loading="querying"
+          :disable="querying && !recording"
+          icon="mic"
+          size="xl"
+        />
       </div>
       <q-input
         class="painting-box painting-action"
@@ -81,6 +97,8 @@ function handleUserInput() {
       <q-btn
         class="painting-action"
         @click="handleUserInput"
+        :loading="querying"
+        :disable="recording || querying"
         id="queryButton"
         round
         color="primary"

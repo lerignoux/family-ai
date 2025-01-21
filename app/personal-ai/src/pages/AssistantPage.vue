@@ -20,6 +20,7 @@ const chat = ref([
   },
 ]);
 const autoRead = ref(true);
+const querying = ref(false);
 const recording = ref(false);
 
 var audioRecorder: MediaRecorder;
@@ -34,6 +35,7 @@ audioDevice.then((stream) => {
 
 function recordAudio() {
   recording.value = true;
+  querying.value = true;
   audioRecorder.start();
 }
 
@@ -44,6 +46,7 @@ function stopAudio() {
 
 function handleAiAnswer(response: string) {
   console.log(`Ai answered "${response}"`);
+  querying.value = false;
   chat.value.push({
     name: 'Ai',
     avatar: 'ai.png',
@@ -75,6 +78,7 @@ function handleSpeechToText(text: string) {
 }
 
 function handleUserInput() {
+  querying.value = true;
   handleUserQuery(userInput.value, model.value);
   userInput.value = '';
 }
@@ -133,6 +137,8 @@ function handleUserInput() {
           id="recordButton"
           round
           :color="recording ? 'secondary' : 'primary'"
+          :loading="querying"
+          :disable="querying && !recording"
           icon="mic"
           size="xl"
         />
@@ -147,6 +153,8 @@ function handleUserInput() {
       <q-btn
         class="chat-action"
         @click="handleUserInput"
+        :loading="querying"
+        :disable="recording || querying"
         id="queryButton"
         round
         color="primary"

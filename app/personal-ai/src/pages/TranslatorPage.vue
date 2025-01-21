@@ -15,6 +15,7 @@ const languages = ref([
   { label: 'Japanese', value: 'jp' },
 ]);
 const autoRead = ref(false);
+const querying = ref(false);
 const recording = ref(false);
 
 var audioRecorder: MediaRecorder;
@@ -29,6 +30,7 @@ audioDevice.then((stream) => {
 
 function recordAudio() {
   recording.value = true;
+  querying.value = true;
   audioRecorder.start();
 }
 
@@ -39,6 +41,7 @@ function stopAudio() {
 
 function handleAiAnswer(response: string) {
   console.log(`Ai answered "${response}"`);
+  querying.value = false;
   aiTranslation.value = response;
   if (autoRead.value) {
     let language = 'en';
@@ -50,6 +53,7 @@ function handleAiAnswer(response: string) {
 }
 
 function translateInput() {
+  querying.value = true;
   translateString(
     userInput.value,
     language_src.value,
@@ -128,6 +132,8 @@ function handleSpeechToText(text: string) {
             id="recordButton"
             round
             :color="recording ? 'secondary' : 'primary'"
+            :loading="querying"
+            :disable="querying && !recording"
             icon="mic"
             size="xl"
           />
@@ -135,6 +141,8 @@ function handleSpeechToText(text: string) {
         <q-btn
           class="translate-action"
           @click="translateInput"
+          :loading="querying"
+          :disable="recording || querying"
           id="queryButton"
           round
           color="primary"
