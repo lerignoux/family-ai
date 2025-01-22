@@ -1,15 +1,32 @@
 import { ComfyUIClient } from './comfy/client';
 import type { Prompt } from './comfy/types';
 
-interface textToSpeechCallback {
-  (audioBlob: Blob): void;
+export async function textToText(prompt: string, model: string) {
+  const requestOptions = {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: model,
+      prompt: prompt,
+      format: 'json',
+      stream: false,
+    }),
+  };
+  // fetch('http://localhost:5175/chat', requestOptions)
+  const rawResponse = await fetch(
+    'https://ai.shanghai.laurent.erignoux.fr:9443/ollama',
+    requestOptions
+  );
+  const jsonResponse = await rawResponse.json();
+  const data = jsonResponse.response;
+  console.log(`Ai answer: "${data}"`);
+  return data;
 }
 
-export function textToSpeech(
-  text: string,
-  language: string,
-  callback: textToSpeechCallback
-) {
+export async function textToSpeech(text: string, language: string) {
+  if (text == '') {
+    console.log('Unable to generate speech from an empty text.');
+  }
   const params: any = { sentence: text };
   if (language !== null) {
     if (language != 'en') {
@@ -25,47 +42,16 @@ export function textToSpeech(
     body: JSON.stringify(params),
   };
   // fetch('http://localhost:5174/tts', requestOptions)
-  fetch('https://ai.shanghai.laurent.erignoux.fr:9443/tts', requestOptions)
-    .then((response) => response.blob())
-    .then((audioBlob) => {
-      console.log('Audio fetched');
-      callback(audioBlob);
-    });
+  const rawResponse = await fetch(
+    'https://ai.shanghai.laurent.erignoux.fr:9443/tts',
+    requestOptions
+  );
+  const blobResponse = await rawResponse.blob();
+  console.log('Audio fetched');
+  return blobResponse;
 }
 
-interface queryAiCallback {
-  (response: string): void;
-}
-
-export function queryAi(
-  prompt: string,
-  model: string,
-  callback: queryAiCallback
-) {
-  const requestOptions = {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: model,
-      prompt: prompt,
-      format: 'json',
-      stream: false,
-    }),
-  };
-  // fetch('http://localhost:5175/chat', requestOptions)
-  fetch('https://ai.shanghai.laurent.erignoux.fr:9443/ollama', requestOptions)
-    .then((response) => response.json())
-    .then((data) => {
-      console.log(`Ai answer: "${data.response}"`);
-      callback(data.response);
-    });
-}
-
-interface speechToTextCallback {
-  (response: string): void;
-}
-
-export function speechToText(blob: Blob, callback: speechToTextCallback) {
+export async function speechToText(blob: Blob) {
   const formData = new FormData();
   formData.append('file', blob, 'audio.ogg');
   formData.append('type', 'ogg');
@@ -75,22 +61,20 @@ export function speechToText(blob: Blob, callback: speechToTextCallback) {
     body: formData,
   };
   //fetch('http://localhost:5176/uploadfile', requestOptions)
-  fetch('https://ai.shanghai.laurent.erignoux.fr:9443/stt', requestOptions)
-    .then((response) => response.json())
-    .then((data) => {
-      console.log(`Decoded: ${data.result}`);
-      callback(data.result);
-    })
-    .catch((error) => {
-      console.log(error);
-    });
+  const rawResponse = await fetch(
+    'https://ai.shanghai.laurent.erignoux.fr:9443/stt',
+    requestOptions
+  );
+  const jsonResponse = await rawResponse.json();
+  const data = jsonResponse.result;
+  console.log(`Decoded: ${data}`);
+  return data;
 }
 
-export function translateString(
+export async function translateText(
   prompt: string,
   language_src: string,
-  language_dst: string,
-  callback: queryAiCallback
+  language_dst: string
 ) {
   const params = new URLSearchParams({
     sentence: prompt,
@@ -103,26 +87,18 @@ export function translateString(
     body: JSON.stringify({}),
   };
   //fetch('http://localhost:5175/chat', requestOptions)
-  fetch(
+  const rawResponse = await fetch(
     'https://ai.shanghai.laurent.erignoux.fr:9443/translate?' + params,
     requestOptions
-  )
-    .then((response) => response.json())
-    .then((data) => {
-      console.log(`Ai answer: "${data.result}"`);
-      callback(data.result);
-    });
+  );
+  const jsonResponse = await rawResponse.json();
+  const data = jsonResponse.result;
+  console.log(`Ai translated: "${data}"`);
+  return data;
 }
 
-interface queryImageCallback {
-  (image: any): void;
-}
-
-export async function queryImage(
-  prompt: string,
-  model: string,
-  callback: queryImageCallback
-) {
+export async function textToImage(prompt: string, model: string) {
+  console.log(`Requested image generation from prompt: ${prompt}`);
   const promptData: Prompt = {
     '3': {
       class_type: 'KSampler',
@@ -203,5 +179,5 @@ export async function queryImage(
   // Disconnect
   await client.disconnect();
 
-  callback(images['9'][0].blob);
+  return images['9'][0].blob;
 }

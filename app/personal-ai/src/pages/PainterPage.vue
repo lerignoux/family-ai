@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { speechToText, queryImage } from '../components/API';
+import { speechToText, textToImage } from '../components/API';
 
 const userInput = ref('a cosmonaut riding a horse on the moon.');
 const model = ref('epicrealismXL_v5Ultimate.safetensors');
@@ -17,10 +17,7 @@ var audioRecorder: MediaRecorder;
 var audioDevice = navigator.mediaDevices.getUserMedia({ audio: true });
 audioDevice.then((stream) => {
   audioRecorder = new MediaRecorder(stream);
-  audioRecorder.ondataavailable = (event: BlobEvent) => {
-    console.log('Audio data available.');
-    speechToText(event.data, handleSpeechToText);
-  };
+  audioRecorder.ondataavailable = handleUserStream;
 });
 
 function recordAudio() {
@@ -34,24 +31,22 @@ function stopAudio() {
   recording.value = false;
 }
 
-function handleAiAnswer(image: any) {
-  console.log(`Ai generated an image: ${image}`);
-  querying.value = false;
-  imageUrl.value = URL.createObjectURL(image);
-}
-
-async function handleUserQuery(query: string, model: string) {
-  await queryImage(query, model, handleAiAnswer);
-}
-
-function handleSpeechToText(text: string) {
+async function handleUserStream(event: BlobEvent) {
+  console.log('Audio data available.');
+  const text = await speechToText(event.data);
   userInput.value = text;
-  handleUserQuery(text, model.value);
+  await handleUserQuery(text, model.value);
 }
 
 function handleUserInput() {
   querying.value = true;
   handleUserQuery(userInput.value, model.value);
+}
+
+async function handleUserQuery(query: string, model: string) {
+  const image = await textToImage(query, model);
+  querying.value = false;
+  imageUrl.value = URL.createObjectURL(image);
 }
 </script>
 
@@ -74,7 +69,6 @@ function handleUserInput() {
       </q-select>
     </div>
 
-    <div class="painting"></div>
     <div class="painting-actions">
       <div class="chat-action" @mousedown="recordAudio" @mouseup="stopAudio">
         <q-btn

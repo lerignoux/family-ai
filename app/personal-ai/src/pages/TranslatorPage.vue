@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { translateString, textToSpeech, speechToText } from '../components/API';
+import { translateText, textToSpeech, speechToText } from '../components/API';
 import { playAudio } from '../components/utils';
 
 const userInput = ref('Who are you');
@@ -22,10 +22,7 @@ var audioRecorder: MediaRecorder;
 var audioDevice = navigator.mediaDevices.getUserMedia({ audio: true });
 audioDevice.then((stream) => {
   audioRecorder = new MediaRecorder(stream);
-  audioRecorder.ondataavailable = (event: BlobEvent) => {
-    console.log('Audio data available.');
-    speechToText(event.data, handleSpeechToText);
-  };
+  audioRecorder.ondataavailable = handleUserStream;
 });
 
 function recordAudio() {
@@ -39,32 +36,34 @@ function stopAudio() {
   recording.value = false;
 }
 
-function handleAiAnswer(response: string) {
-  console.log(`Ai answered "${response}"`);
+async function handleUserStream(event: BlobEvent) {
+  console.log('Audio data available.');
+  const text = await speechToText(event.data);
+  userInput.value = text;
+  await handleUserQuery(text);
+}
+
+async function handleUserInput() {
+  querying.value = true;
+  await handleUserQuery(userInput.value);
+}
+
+async function handleUserQuery(query: string) {
+  const translated = await translateText(
+    query,
+    language_src.value,
+    language_dst.value
+  );
+  aiTranslation.value = translated;
   querying.value = false;
-  aiTranslation.value = response;
   if (autoRead.value) {
     let language = 'en';
     if (language_dst.value != 'en') {
       language = `${language_dst.value}-${language_dst.value}`;
     }
-    textToSpeech(response, language, playAudio);
+    const audio = await textToSpeech(translated, language);
+    playAudio(audio);
   }
-}
-
-function translateInput() {
-  querying.value = true;
-  translateString(
-    userInput.value,
-    language_src.value,
-    language_dst.value,
-    handleAiAnswer
-  );
-}
-
-function handleSpeechToText(text: string) {
-  userInput.value = text;
-  translateString(text, language_src.value, language_dst.value, handleAiAnswer);
 }
 </script>
 
@@ -113,7 +112,7 @@ function handleSpeechToText(text: string) {
       <div class="q-pa-md translate-source" style="width: 400px">
         <q-input
           v-model="userInput"
-          v-on:keyup.enter="translateInput"
+          v-on:keyup.enter="handleUserInput"
           filled
           type="textarea"
           hint="Your input"
@@ -140,7 +139,7 @@ function handleSpeechToText(text: string) {
         </div>
         <q-btn
           class="translate-action"
-          @click="translateInput"
+          @click="handleUserInput"
           :loading="querying"
           :disable="recording || querying"
           id="queryButton"

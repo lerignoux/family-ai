@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { queryAi, textToSpeech, speechToText } from '../components/API';
+import { speechToText, textToText, textToSpeech } from '../components/API';
 import { playAudio } from '../components/utils';
 
 const userInput = ref('Who are you');
@@ -27,10 +27,7 @@ var audioRecorder: MediaRecorder;
 var audioDevice = navigator.mediaDevices.getUserMedia({ audio: true });
 audioDevice.then((stream) => {
   audioRecorder = new MediaRecorder(stream);
-  audioRecorder.ondataavailable = (event: BlobEvent) => {
-    console.log('Audio data available.');
-    speechToText(event.data, handleSpeechToText);
-  };
+  audioRecorder.ondataavailable = handleUserStream;
 });
 
 function recordAudio() {
@@ -44,25 +41,23 @@ function stopAudio() {
   audioRecorder.stop();
 }
 
-function handleAiAnswer(response: string) {
-  console.log(`Ai answered "${response}"`);
-  querying.value = false;
-  chat.value.push({
-    name: 'Ai',
-    avatar: 'ai.png',
-    stamp: 'Now',
-    text: [response],
-    status: 'sent',
-  });
-  if (autoRead.value) {
-    textToSpeech(response, 'en', playAudio);
-  }
+async function handleUserStream(event: BlobEvent) {
+  console.log('Audio data available.');
+  const text = await speechToText(event.data);
+  userInput.value = text;
+  await handleUserQuery(text);
 }
 
-function handleUserQuery(query: string, model: string) {
+function handleUserInput() {
+  querying.value = true;
+  handleUserQuery(userInput.value);
+}
+
+async function handleUserQuery(query: string) {
   if (query == '') {
     console.log('Empty user query, skipping.');
   }
+  console.log(query);
   chat.value.push({
     name: 'user',
     avatar: 'https://cdn.quasar.dev/img/avatar2.jpg',
@@ -70,17 +65,20 @@ function handleUserQuery(query: string, model: string) {
     text: [query],
     status: 'sending',
   });
-  queryAi(query, model, handleAiAnswer);
-}
-
-function handleSpeechToText(text: string) {
-  handleUserQuery(text, model.value);
-}
-
-function handleUserInput() {
-  querying.value = true;
-  handleUserQuery(userInput.value, model.value);
+  const response = await textToText(query, model.value);
+  chat.value.push({
+    name: 'Ai',
+    avatar: 'ai.png',
+    stamp: 'Now',
+    text: [response],
+    status: 'sent',
+  });
+  querying.value = false;
   userInput.value = '';
+  if (autoRead.value) {
+    const audio = await textToSpeech(response, 'en');
+    playAudio(audio);
+  }
 }
 </script>
 
