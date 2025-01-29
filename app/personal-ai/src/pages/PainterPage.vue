@@ -62,9 +62,7 @@ async function handleUserQuery(query: string, model: string) {
         label="Model:"
       >
         <template v-slot:append>
-          <q-avatar>
-            <img src="ai_logo.png" />
-          </q-avatar>
+          <q-avatar icon="mdi-data-matrix" text-color="white"/>
         </template>
       </q-select>
     </div>
@@ -86,7 +84,7 @@ async function handleUserQuery(query: string, model: string) {
         class="painting-box painting-action"
         outlined
         v-model="userInput"
-        label="Query Ai"
+        label="Create an image of:"
         v-on:keyup.enter="handleUserInput"
       />
       <q-btn
@@ -117,6 +115,7 @@ async function handleUserQuery(query: string, model: string) {
   margin-right: 10%;
   display: flex;
   flex-direction: column;
+  padding: 6px;
 }
 
 .painting-options {
@@ -142,7 +141,6 @@ async function handleUserQuery(query: string, model: string) {
 }
 
 .painting-box {
-  align-self: stretch;
   width: 100%;
   min-width: 200px;
 }

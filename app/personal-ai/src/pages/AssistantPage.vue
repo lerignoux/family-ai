@@ -91,23 +91,22 @@ async function handleUserQuery(query: string) {
         v-model="model"
         emit-value
         :options="models"
-        dense
         label="Model:"
       >
         <template v-slot:append>
-          <q-avatar>
-            <img src="ai_logo.png" />
-          </q-avatar>
+          <q-avatar icon="mdi-data-matrix" text-color="white"/>
         </template>
       </q-select>
-      <q-checkbox
-        left-label
-        v-model="autoRead"
-        checked-icon="mic"
-        unchecked-icon="keyboard"
-        label="Auto play audio"
-        indeterminate-icon="help"
-      />
+      <q-item tag="label" class="bg-grey-10" v-ripple>
+        <q-checkbox
+          left-label
+          v-model="autoRead"
+          checked-icon="mic"
+          unchecked-icon="keyboard"
+          label="Auto play audio"
+          indeterminate-icon="help"
+        />
+      </q-item>
     </div>
 
     <div class="chat">
@@ -173,6 +172,7 @@ async function handleUserQuery(query: string) {
   margin-right: 10%;
   display: flex;
   flex-direction: column;
+  padding: 6px;
 }
 
 .chat-options {
@@ -204,7 +204,6 @@ async function handleUserQuery(query: string) {
 }
 
 .chat-box {
-  align-self: stretch;
   width: 100%;
   min-width: 200px;
 }

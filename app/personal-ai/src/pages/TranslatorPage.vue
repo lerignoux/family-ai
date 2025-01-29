@@ -5,8 +5,10 @@ import { playAudio } from '../components/utils';
 
 const userInput = ref('Who are you');
 const aiTranslation = ref('');
-const language_src = ref('en');
-const language_dst = ref('fr');
+const language_src = ref(
+  { label: 'English', value: 'en' });
+const language_dst = ref(
+  { label: 'French', value: 'fr' });
 const languages = ref([
   { label: 'English', value: 'en' },
   { label: 'French', value: 'fr' },
@@ -51,15 +53,15 @@ async function handleUserInput() {
 async function handleUserQuery(query: string) {
   const translated = await translateText(
     query,
-    language_src.value,
-    language_dst.value
+    language_src.value.value,
+    language_dst.value.value
   );
   aiTranslation.value = translated;
   querying.value = false;
   if (autoRead.value) {
     let language = 'en';
-    if (language_dst.value != 'en') {
-      language = `${language_dst.value}-${language_dst.value}`;
+    if (language_dst.value.value != 'en') {
+      language = `${language_dst.value.value}-${language_dst.value.value}`;
     }
     const audio = await textToSpeech(translated, language);
     playAudio(audio);
@@ -73,39 +75,33 @@ async function handleUserQuery(query: string) {
       <q-select
         standout
         v-model="language_src"
-        emit-value
         :options="languages"
-        dense
         label="From:"
       >
         <template v-slot:append>
-          <q-avatar>
-            <img src="ai_logo.png" />
-          </q-avatar>
+          <q-avatar icon="mdi-translate" text-color="white"/>
         </template>
       </q-select>
       <q-select
         standout
         v-model="language_dst"
-        emit-value
         :options="languages"
-        dense
         label="To:"
       >
         <template v-slot:append>
-          <q-avatar>
-            <img src="ai_logo.png" />
-          </q-avatar>
+          <q-avatar icon="mdi-translate" text-color="white"/>
         </template>
       </q-select>
-      <q-checkbox
-        left-label
-        v-model="autoRead"
-        checked-icon="mic"
-        unchecked-icon="keyboard"
-        label="Auto play audio"
-        indeterminate-icon="help"
-      />
+      <q-item tag="label" class="bg-grey-10" v-ripplet>
+        <q-checkbox
+          left-label
+          v-model="autoRead"
+          checked-icon="mic"
+          unchecked-icon="keyboard"
+          label="Auto play audio"
+          indeterminate-icon="help"
+        />
+      </q-item>
     </div>
 
     <div class="translate">
@@ -171,6 +167,7 @@ async function handleUserQuery(query: string) {
   margin-right: 10%;
   display: flex;
   flex-direction: column;
+  padding: 6px;
 }
 
 .translate-options {

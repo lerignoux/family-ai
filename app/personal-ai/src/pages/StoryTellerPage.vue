@@ -150,13 +150,10 @@ async function saveStoryPdf() {
         v-model="style"
         emit-value
         :options="styles"
-        dense
-        label="Model:"
+        label="Style:"
       >
         <template v-slot:append>
-          <q-avatar>
-            <img src="ai_logo.png" />
-          </q-avatar>
+          <q-avatar icon="style" text-color="white" />
         </template>
       </q-select>
       <q-input
@@ -195,7 +192,7 @@ async function saveStoryPdf() {
         class="painting-box painting-action"
         outlined
         v-model="userInput"
-        label="Query Ai"
+        label="Create a story about:"
         v-on:keyup.enter="handleUserInput"
       />
       <q-btn
@@ -272,6 +269,7 @@ async function saveStoryPdf() {
   margin-right: 10%;
   display: flex;
   flex-direction: column;
+  padding: 6px;
 }
 
 .story-options {
@@ -302,5 +300,10 @@ async function saveStoryPdf() {
 .story-text {
   color: black;
   padding: 12px;
+}
+
+.painting-box {
+  width: 100%;
+  min-width: 200px;
 }
 </style>
