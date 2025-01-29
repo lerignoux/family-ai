@@ -1,5 +1,6 @@
 import logging
 import os
+import requests
 from typing import Union
 import subprocess
 import sys
@@ -102,4 +103,7 @@ def read_item():
     """
     List the currently available models on the llm.
     """
-    return llm.list_models()
+    response = requests.get(f"{BASE_URL}/api/tags")
+    model_data = response.json()
+    model_list = [model['model'] for model in model_data.get('models', [])]
+    return model_list

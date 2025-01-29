@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import { textToText, speechToText, textToImage } from '../components/API';
 
-import { jsPDF } from "jspdf";
+import { jsPDF } from 'jspdf';
 
 interface StoryPage {
   text: string;
@@ -138,7 +138,7 @@ async function saveStoryPdf() {
     doc.text(page.text, 24, 200, textOptions)
     doc.addImage(page.illustration, 'PNG', 24, 24, 160, 160);
   });
-  doc.save("history.pdf");
+  doc.save('history.pdf');
 }
 </script>
 
