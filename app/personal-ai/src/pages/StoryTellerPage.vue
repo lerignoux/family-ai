@@ -2,6 +2,8 @@
 import { ref } from 'vue';
 import { textToText, speechToText, textToImage } from '../components/API';
 
+import { jsPDF } from "jspdf";
+
 interface StoryPage {
   text: string;
   summary: string;
@@ -19,8 +21,11 @@ const promptTemplate = ref(
 const summaryTemplate = ref(
   'Please create a summary in a short sentence of the following text: '
 );
+
+const autoRead = ref(true);
 const modelStory = ref('phi');
 const modelIllustration = ref('epicrealismXL_v5Ultimate.safetensors');
+const storyLength = ref(4);
 const styles = ref([
   {
     label: 'Oniric',
@@ -35,7 +40,6 @@ const style = ref({
   label: 'Oniric',
   illustrationTemplate: 'An oniric and colorful painting of ',
 });
-const pageCount = ref(2);
 const rawStory = ref('');
 const storyIndex = ref(0);
 const formattedStory = ref<StoryBook>([]);
@@ -82,7 +86,7 @@ async function handleUserQuery(query: string) {
   storyIndex.value = 0;
 
   const request =
-    promptTemplate.value.replace('{pageCount}', pageCount.value.toString()) +
+    promptTemplate.value.replace('{pageCount}', storyLength.value.toString()) +
     query;
   const story = await textToText(request, modelStory.value);
   rawStory.value = story;
@@ -119,6 +123,23 @@ async function generatePageContent(pageContent: string, pageNumber: number) {
     summary: pageSummary,
   });
 }
+
+async function saveStoryPdf() {
+  // Default export is a4 paper, portrait, using millimeters for units
+  const doc = new jsPDF();
+
+  const textOptions = {
+    maxWidth: 160
+  }
+  doc.text(userInput.value, 24, 24, textOptions)
+
+  formattedStory.value.forEach( (page: StoryPage) => {
+    doc.addPage();
+    doc.text(page.text, 24, 200, textOptions)
+    doc.addImage(page.illustration, 'PNG', 24, 24, 160, 160);
+  });
+  doc.save("history.pdf");
+}
 </script>
 
 <template>
@@ -138,6 +159,23 @@ async function generatePageContent(pageContent: string, pageNumber: number) {
           </q-avatar>
         </template>
       </q-select>
+      <q-input
+        v-model.number="storyLength"
+        type="number"
+        standout
+        style="max-width: 200px"
+        label="story lenght (pages)"
+      />
+      <q-item tag="label" class="bg-grey-10" v-ripple>
+        <q-checkbox
+          left-label
+          v-model="autoRead"
+          checked-icon="mic"
+          unchecked-icon="keyboard"
+          label="Auto play audio"
+          indeterminate-icon="help"
+        />
+      </q-item>
     </div>
 
     <div class="story-actions">
@@ -171,6 +209,9 @@ async function generatePageContent(pageContent: string, pageNumber: number) {
         icon="message"
         size="xl"
       />
+      <q-btn round @click="saveStoryPdf" color="black" icon="my_location" />
+
+
     </div>
 
     <q-carousel

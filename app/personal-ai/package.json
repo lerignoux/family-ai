@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@quasar/extras": "^1.16.4",
+    "jspdf": "^2.5.2",
     "pino": "^9.6.0",
     "quasar": "^2.16.0",
     "uuid": "^11.0.5",
