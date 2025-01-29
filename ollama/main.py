@@ -1,8 +1,3 @@
-
-
-
-
-
 import logging
 import os
 from typing import Union
@@ -43,8 +38,10 @@ class Chat(BaseModel):
 
 MODELS_FOLDER = "/root/.local/share/tts"
 DEFAULT_MODEL = "tts_models/en/ljspeech/fast_pitch"
+BASE_URL = "http://ollama:11434"
+current_model="phi"
 
-llm = Ollama(model="phi", base_url="http://ollama:11434")
+llm = Ollama(model=current_model, base_url=BASE_URL)
 
 template = """
 You are a helpful and friendly AI assistant. You are polite, respectful, and aim to provide concise responses of less
@@ -87,14 +84,22 @@ def read(chat: Chat):
     """
     Process the given input into audio convert in mp3 and returns it as a file.
     """
+    global current_model
+    global llm
+
+    if chat.model != current_model:
+        current_model = chat.model
+        llm = Ollama(model=current_model, base_url=BASE_URL)
+
     response = llm(chat.prompt)
 
     return {"response": response}
 
 
 @app.get("/models")
+@app.get("/ollama/models")
 def read_item():
     """
     List the currently available models on the llm.
     """
-    return []
+    return llm.list_models()
