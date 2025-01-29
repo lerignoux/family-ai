@@ -13,7 +13,7 @@ const models = ref([
 const chat = ref([
   {
     name: 'Ai',
-    avatar: 'ai.png',
+    avatar: 'src/assets/assistant_head_small_black.png',
     status: 'sent',
     stamp: 'now',
     text: ['Hello what can I do for you ?'],
@@ -68,7 +68,7 @@ async function handleUserQuery(query: string) {
   const response = await textToText(query, model.value);
   chat.value.push({
     name: 'Ai',
-    avatar: 'ai.png',
+    avatar: 'src/assets/assistant_head_small_black.png',
     stamp: 'Now',
     text: [response],
     status: 'sent',
