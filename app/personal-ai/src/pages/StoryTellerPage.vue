@@ -22,18 +22,27 @@ const autoRead = ref(true);
 const model = ref({
     label: 'Mistral',
     value: 'mistral',
-    description: 'European Mistral model, non free',
+    description: 'European Mistral model.',
+    type: 'local',
 });
 const models = ref([
   {
     label: 'Mistral',
     value: 'mistral',
-    description: 'European Mistral model, non free',
+    description: 'European Mistral model.',
+    type: 'local',
+  },
+  {
+    label: 'Mistral API',
+    value: 'mistral-large-latest',
+    description: 'European Mistral model, non free.',
+    type: 'api',
   },
   {
     label: 'Llama 3.1',
     value: 'llama3.1',
-    description: '"Open source" llama 3.1 model created by meta',
+    description: '"Open source" llama 3.1 model created by meta.',
+    type: 'local',
   },
 ]);
 const modelIllustration = ref('epicrealismXL_v5Ultimate.safetensors');
@@ -101,6 +110,11 @@ async function handleUserQuery(query: string) {
     promptTemplate.value.replace('{pageCount}', storyLength.value.toString()) +
     query;
   const story = await textToStory(query, model.value.value, storyLength.value);
+  if (story == undefined) {
+    console.log("Empty story returned.");
+    querying.value = false;
+    return;
+  }
   if (story.title != undefined) {
     const pageCount = storyLength.value;
     var i: number;

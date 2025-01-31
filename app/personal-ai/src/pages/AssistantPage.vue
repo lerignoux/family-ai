@@ -66,20 +66,26 @@ async function handleUserQuery(query: string) {
     text: [query],
     status: 'sending',
   });
-  const response = await textToText(query, model.value);
-  chat.value.push({
-    name: 'Ai',
-    avatar: 'src/assets/assistant_head_small_black.png',
-    stamp: 'Now',
-    text: [response],
-    status: 'sent',
-  });
-  querying.value = false;
-  userInput.value = '';
-  if (autoRead.value) {
-    const audio = await textToSpeech(response, 'en');
-    playAudio(audio);
+  try {
+    const response = await textToText(query, model.value);
+    chat.value.push({
+      name: 'Ai',
+      avatar: 'src/assets/assistant_head_small_black.png',
+      stamp: 'Now',
+      text: [response],
+      status: 'sent',
+    });
+    querying.value = false;
+    userInput.value = '';
+    if (autoRead.value) {
+      const audio = await textToSpeech(response, 'en');
+      playAudio(audio);
+    }
+  } catch (e) {
+    querying.value = false;
+    throw e;
   }
+
 }
 </script>
 

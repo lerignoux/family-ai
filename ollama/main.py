@@ -8,8 +8,6 @@ from bson import ObjectId
 
 from fastapi import FastAPI, File
 from fastapi.middleware.cors import CORSMiddleware
-from langchain_community.llms import Ollama
-from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory
 from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
 from langchain_ollama import ChatOllama
@@ -52,80 +50,51 @@ def read_secret(name):
         return f.read().strip()
 
 
-MODELS_FOLDER = "/root/.local/share/tts"
-DEFAULT_MODEL = "tts_models/en/ljspeech/fast_pitch"
 BASE_URL = "http://ollama:11434"
-#current_model="phi"
-current_model="llama"
+current_model="llama3.1"
+llm_handler = ChatOllama(model=current_model, base_url=BASE_URL, temperature=0)
 
-llm = Ollama(model=current_model, base_url=BASE_URL)
+custom_llm_handlers = {
+    'mistral-large-latest': ChatMistralAI(api_key=read_secret("mistral_api_key"), model="mistral-large-latest")
+}
 
-ollama = ChatOllama(model="llama3.1", base_url=BASE_URL, temperature=0)
-mistral = ChatMistralAI(api_key=read_secret("mistral_api_key"), model="mistral-large-latest")
-
-template = """
-You are a helpful and friendly AI assistant. You are polite, respectful, and aim to provide concise responses of less
-than 20 words.
-
-The conversation transcript is as follows:
-{history}
-
-And here is the user's follow-up: {input}
-
-Your response:
-"""
-
-prompt_template = PromptTemplate(input_variables=["history", "input"], template=template)
-chain = ConversationChain(
-    prompt=prompt_template,
-    verbose=False,
-    memory=ConversationBufferMemory(ai_prefix="Assistant:"),
-    llm=Ollama(),
-)
-
-def get_llm_response(text: str) -> str:
-    """
-    Generates a response to the given text using the Llama-2 language model.
-
-    Args:
-        text (str): The input text to be processed.
-
-    Returns:
-        str: The generated response.
-    """
-    response = chain.predict(input=text)
-    if response.startswith("Assistant:"):
-        response = response[len("Assistant:") :].strip()
-    return response
+def get_default_llm_handler(model):
+    global current_model
+    global llm_handler
+    if model != current_model:
+        llm_handler = ChatOllama(model="llama3.1", base_url=BASE_URL, temperature=0)
+    return llm_handler
 
 
 @app.post("/ollama/chat")
 def read(chat: Chat):
     """
-    Process the given input into audio convert in mp3 and returns it as a file.
+    Request the ai model to answer to a user query.
     """
-    global current_model
-    global llm
+    llm = custom_llm_handlers.get(chat.model, get_default_llm_handler(chat.model))
 
-    if chat.model != current_model:
-        current_model = chat.model
-        llm = Ollama(model=current_model, base_url=BASE_URL)
+    messages = [
+        (
+            "system",
+            "You are a helpful assistant trying to politely answer and help the user as much as possible. Answer to the user request in a concise manner.",
+        ),
+        ("human", chat.prompt),
+    ]
 
-    response = llm(chat.prompt)
-
-    return {"response": response}
+    response = llm.invoke(messages)
+    
+    return {"response": response.content}
 
 
 @app.post("/ollama/story")
 def read(story: Story):
     """
+    Request generating a kid story.
     """
-    global mistral
-    global ollama
+    global current_model
+    global llm
 
-    model = ollama
-    if story.model == 'mistral':
-        model = mistral
+    llm = custom_llm_handlers.get(story.model, get_default_llm_handler(story.model))
 
     story_schema = {
         "title": "story",
@@ -150,7 +119,7 @@ def read(story: Story):
             "description": chapter_description
         }
 
-    structured_llm = model.with_structured_output(schema=story_schema)
+    structured_llm = llm.with_structured_output(schema=story_schema)
     response = structured_llm.invoke(f"Please write a kid story in {story.chapter_count} short chapters of a few sentences each about {story.subject}")
     return {"response": response}
 
