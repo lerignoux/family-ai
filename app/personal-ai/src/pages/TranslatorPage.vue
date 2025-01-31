@@ -73,7 +73,7 @@ async function handleUserQuery(query: string) {
   <div class="translator">
     <div class="translate-options">
       <q-select
-        standout
+        standout="bg-grey-9 text-white"
         v-model="language_src"
         :options="languages"
         label="From:"
@@ -83,7 +83,7 @@ async function handleUserQuery(query: string) {
         </template>
       </q-select>
       <q-select
-        standout
+        standout="bg-grey-9 text-white"
         v-model="language_dst"
         :options="languages"
         label="To:"
@@ -177,6 +177,9 @@ async function handleUserQuery(query: string) {
   flex-wrap: no-wrap;
   justify-content: space-around;
   gap: 20px;
+  .q-field__native span {
+    color: $negative
+  }
 }
 
 .translate-actions {

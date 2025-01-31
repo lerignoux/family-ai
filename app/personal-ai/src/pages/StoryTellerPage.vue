@@ -218,7 +218,8 @@ async function saveStoryPdf() {
   <div class="story">
     <div class="story-options">
       <q-select
-        standout
+        standout="bg-grey-9 text-white"
+        dark text-color="white"
         v-model="style"
         emit-value
         :options="styles"
@@ -229,7 +230,7 @@ async function saveStoryPdf() {
         </template>
       </q-select>
       <q-select
-        standout
+        standout="bg-grey-9 text-white"
         v-model="model"
         :options="models"
         label="Story creation model:"
@@ -241,7 +242,7 @@ async function saveStoryPdf() {
       <q-input
         v-model.number="storyLength"
         type="number"
-        standout
+        standout="bg-grey-9 text-white"
         style="max-width: 200px"
         label="story lenght (pages)"
       />
@@ -371,6 +372,9 @@ async function saveStoryPdf() {
   flex-wrap: no-wrap;
   justify-content: space-around;
   gap: 20px;
+  .q-field__native span {
+    color: white;
+  }
 }
 
 .story-actions {

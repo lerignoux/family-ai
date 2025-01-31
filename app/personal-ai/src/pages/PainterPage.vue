@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import { speechToText, textToImage } from '../components/API';
 
 const userInput = ref('a cosmonaut riding a horse on the moon.');
-const model = ref('epicrealismXL_v5Ultimate.safetensors');
+const model = ref({ label: 'Epic Realism', value: 'epicrealismXL_v5Ultimate.safetensors' });
 const models = ref([
   { label: 'Epic Realism', value: 'epicrealismXL_v5Ultimate.safetensors' },
   { label: 'Flux Dev', value: 'flux1-dev-fp8_comfy.safetensors' },
@@ -35,12 +35,12 @@ async function handleUserStream(event: BlobEvent) {
   console.log('Audio data available.');
   const text = await speechToText(event.data);
   userInput.value = text;
-  await handleUserQuery(text, model.value);
+  await handleUserQuery(text, model.value.value);
 }
 
 function handleUserInput() {
   querying.value = true;
-  handleUserQuery(userInput.value, model.value);
+  handleUserQuery(userInput.value, model.value.value);
 }
 
 async function handleUserQuery(query: string, model: string) {
@@ -54,11 +54,9 @@ async function handleUserQuery(query: string, model: string) {
   <div class="painting">
     <div class="painting-options">
       <q-select
-        standout
         v-model="model"
-        emit-value
+        standout="bg-grey-9 text-white"
         :options="models"
-        dense
         label="Model:"
       >
         <template v-slot:append>
@@ -125,6 +123,9 @@ async function handleUserQuery(query: string, model: string) {
   flex-wrap: no-wrap;
   justify-content: space-around;
   gap: 20px;
+  .q-field__native span {
+    color: $negative
+  }
 }
 
 .painting-actions {

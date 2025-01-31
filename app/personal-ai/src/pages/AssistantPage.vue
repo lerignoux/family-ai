@@ -93,7 +93,7 @@ async function handleUserQuery(query: string) {
   <div class="assistant">
     <div class="chat-options">
       <q-select
-        standout
+        standout="bg-grey-9 text-white"
         v-model="model"
         emit-value
         :options="models"
@@ -188,6 +188,9 @@ async function handleUserQuery(query: string) {
   flex-wrap: no-wrap;
   justify-content: space-around;
   gap: 20px;
+  .q-field__native span {
+    color: $negative
+  }
 }
 
 .chat-actions {

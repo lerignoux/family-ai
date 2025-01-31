@@ -1,1 +1,10 @@
 // app global css in SCSS form
+body.body--dark {
+    --q-primary: #1976D2;
+    --q-secondary: #26A69A;
+    --q-accent: #9C27B0;
+    --q-positive: #21BA45;
+    --q-negative: #C10015;
+    --q-info: #31CCEC;
+    --q-warning: #F2C037;
+}
