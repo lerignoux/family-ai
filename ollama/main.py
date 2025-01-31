@@ -130,7 +130,24 @@ def read_item():
     """
     List the currently available models on the llm.
     """
+    model_list = [
+            {'name': "Mistral Lage", 'value': 'mistral-large-latest', "description":"European Mistral model, non free.", 'type': 'api'}
+    ]
+
     response = requests.get(f"{BASE_URL}/api/tags")
     model_data = response.json()
-    model_list = [model['model'] for model in model_data.get('models', [])]
+    for model in model_data.get('models', []):
+        model_name = model['name']
+        try:
+          model_name = model['name'].split(':')[0]
+        except KeyError:
+            pass
+        model_name = model_name.replace('-', ' ' ).title()
+        model_list.append({
+            'name': model_name,
+            'value': model['model'],
+            'description': f"{model['model']} \"open source\" model hosted locally.",
+            'type': 'local',
+        })
+
     return model_list
