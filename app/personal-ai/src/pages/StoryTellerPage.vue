@@ -14,9 +14,6 @@ type StoryBook = StoryPage[];
 const userInput = ref(
   'a little kid day in the wood playing with his animals friends.'
 );
-const promptTemplate = ref(
-  'Please create a kid story of {pageCount} sentences around the following subject: '
-);
 
 const autoRead = ref(true);
 const model = ref({
@@ -45,12 +42,23 @@ const models = ref([
     type: 'local',
   },
 ]);
-const modelIllustration = ref('epicrealismXL_v5Ultimate.safetensors');
+const modelIllustration = ref({
+    label: 'EpicRealism XL',
+    value: 'epicrealismXL_v5Ultimate.safetensors'
+});
 const storyLength = ref(4);
 const styles = ref([
   {
     label: 'Oniric',
     illustrationTemplate: 'An oniric and colorful painting of ',
+  },
+  {
+    label: 'Oil painting',
+    illustrationTemplate: 'oil painting, heavy strokes, paint dripping, stunning masterpiece, Leonid Afremov details of ',
+  },
+  {
+    label: 'Chinese painting',
+    illustrationTemplate: 'Traditional chinese painting style asian chinese culture beautiful chinese ink of ',
   },
   {
     label: 'Scary',
@@ -106,12 +114,9 @@ async function handleUserQuery(query: string) {
   formattedStory.value = [];
   storyIndex.value = 0;
 
-  const request =
-    promptTemplate.value.replace('{pageCount}', storyLength.value.toString()) +
-    query;
   const story = await textToStory(query, model.value.value, storyLength.value);
   if (story == undefined) {
-    console.log("Empty story returned.");
+    console.log('Empty story returned.');
     querying.value = false;
     return;
   }
@@ -123,7 +128,7 @@ async function handleUserQuery(query: string) {
     const illustrationRequest = style.value.illustrationTemplate + story[chapterKey];
     const pageIllustration = await textToImage(
       illustrationRequest,
-      modelIllustration.value
+      modelIllustration.value.value
     );
     formattedStory.value.push({
       text: story[chapterKey],
@@ -156,7 +161,7 @@ async function formatRawPageContent(pageContent: string, pageNumber: number) {
   const illustrationRequest = style.value.illustrationTemplate + pageContent;
   const pageIllustration = await textToImage(
     illustrationRequest,
-    modelIllustration.value
+    modelIllustration.value.value
   );
   formattedStory.value.push({
     text: pageContent,
@@ -165,21 +170,47 @@ async function formatRawPageContent(pageContent: string, pageNumber: number) {
   });
 }
 
+function capitalize(text: string) {
+    return String(text).charAt(0).toUpperCase() + String(text).slice(1);
+}
+
 async function saveStoryPdf() {
   // Default export is a4 paper, portrait, using millimeters for units
   const doc = new jsPDF();
 
+  const titleOptions = {
+    maxWidth: 160
+  }
+
   const textOptions = {
     maxWidth: 160
   }
-  doc.text(userInput.value, 24, 24, textOptions)
+  
+  doc.addImage('src/assets/assistant_head_black.png', 'PNG', 84, 24, 40, 40);
+  doc.setTextColor(0.8, 0.3, 0.3);
+  doc.setFontSize(24);
+  doc.setFont('undefined', 'bold'); 
+  doc.text(capitalize(userInput.value), 24, 80, titleOptions);
 
+  doc.setFont('undefined', 'undefined'); 
+  doc.setFontSize(18);
+  doc.text('Story created by', 24, 100, titleOptions)
+  doc.setTextColor('#3333ff');
+  doc.textWithLink('personal AI', 67, 100, {url: 'https://github.com/lerignoux/personal-ai'})
+  doc.setTextColor(0.0)
+  doc.text('assistant.', 98, 100, titleOptions)
+  doc.setFontSize(16);
+  doc.text(`* Text generated using ${model.value.label}`, 26, 110, titleOptions)
+  doc.text(`* Illustrations generated using ${modelIllustration.value.label}`, 26, 120, titleOptions)
+
+  doc.setTextColor(0.0)
+  doc.setFontSize(16);
   formattedStory.value.forEach( (page: StoryPage) => {
     doc.addPage();
     doc.text(page.text, 24, 200, textOptions)
     doc.addImage(page.illustration, 'PNG', 24, 24, 160, 160);
   });
-  doc.save('history.pdf');
+  doc.save('personal_ai_story.pdf');
 }
 </script>
 
@@ -227,7 +258,7 @@ async function saveStoryPdf() {
     </div>
 
     <div class="story-actions">
-      <div class="chat-action" @mousedown="recordAudio" @mouseup="stopAudio">
+      <div @mousedown="recordAudio" @mouseup="stopAudio">
         <q-btn
           id="recordButton"
           round
@@ -235,7 +266,7 @@ async function saveStoryPdf() {
           :loading="querying"
           :disable="querying && !recording"
           icon="mic"
-          size="xl"
+          size="l"
         />
       </div>
 
@@ -247,7 +278,7 @@ async function saveStoryPdf() {
         v-on:keyup.enter="handleUserInput"
       />
       <q-btn
-        class="painting-action"
+        class="story-action"
         @click="handleUserInput"
         :loading="querying"
         :disable="recording || querying"
@@ -255,9 +286,19 @@ async function saveStoryPdf() {
         round
         color="primary"
         icon="message"
-        size="xl"
+        size="l"
       />
-      <q-btn round @click="saveStoryPdf" color="black" icon="my_location" />
+      <div class="story-action">
+      <q-btn
+        class="download-pdf"
+        color="primary"
+        icon="mdi-file-download"
+        label="PDF"
+        @click="saveStoryPdf"
+        :disable="querying"
+
+      />
+      </div>
 
 
     </div>
@@ -338,7 +379,7 @@ async function saveStoryPdf() {
   align-items: center;
   flex-wrap: no-wrap;
   justify-content: space-around;
-  gap: 20px;
+  gap: 10px;
   margin: 12px;
 }
 
@@ -356,5 +397,9 @@ async function saveStoryPdf() {
 .painting-box {
   width: 100%;
   min-width: 200px;
+}
+.download-pdf {
+  min-width: 98px;
+  font-size: 15px;
 }
 </style>
