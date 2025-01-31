@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { textToText, speechToText, textToImage } from '../components/API';
+import { textToStory, speechToText, textToImage } from '../components/API';
 
 import { jsPDF } from 'jspdf';
 
 interface StoryPage {
   text: string;
-  summary: string;
   illustration: string;
   pageNumber: number;
 }
@@ -18,12 +17,25 @@ const userInput = ref(
 const promptTemplate = ref(
   'Please create a kid story of {pageCount} sentences around the following subject: '
 );
-const summaryTemplate = ref(
-  'Please create a summary in a short sentence of the following text: '
-);
 
 const autoRead = ref(true);
-const modelStory = ref('phi');
+const model = ref({
+    label: 'Mistral',
+    value: 'mistral',
+    description: 'European Mistral model, non free',
+});
+const models = ref([
+  {
+    label: 'Mistral',
+    value: 'mistral',
+    description: 'European Mistral model, non free',
+  },
+  {
+    label: 'Llama 3.1',
+    value: 'llama3.1',
+    description: '"Open source" llama 3.1 model created by meta',
+  },
+]);
 const modelIllustration = ref('epicrealismXL_v5Ultimate.safetensors');
 const storyLength = ref(4);
 const styles = ref([
@@ -88,20 +100,38 @@ async function handleUserQuery(query: string) {
   const request =
     promptTemplate.value.replace('{pageCount}', storyLength.value.toString()) +
     query;
-  const story = await textToText(request, modelStory.value);
-  rawStory.value = story;
-  console.log('Cutting the story in pages;');
-
-  let index = 0;
-  for (const pageContent of story.split('.')) {
-    await generatePageContent(pageContent, index);
-    index += 1;
+  const story = await textToStory(query, model.value.value, storyLength.value);
+  if (story.title != undefined) {
+    const pageCount = storyLength.value;
+    var i: number;
+    for (i = 0; i < pageCount; i++) {
+    const chapterKey = `chapter ${i}`;
+    const illustrationRequest = style.value.illustrationTemplate + story[chapterKey];
+    const pageIllustration = await textToImage(
+      illustrationRequest,
+      modelIllustration.value
+    );
+    formattedStory.value.push({
+      text: story[chapterKey],
+      illustration: URL.createObjectURL(pageIllustration),
+      pageNumber: i,
+    });
+    }
   }
+  else {
+    rawStory.value = story;
+    console.log('Cutting the raw story in pages;');
 
+    let index = 0;
+    for (const pageContent of story.split('.')) {
+      await formatRawPageContent(pageContent, index);
+      index += 1;
+    }
+  }
   querying.value = false;
 }
 
-async function generatePageContent(pageContent: string, pageNumber: number) {
+async function formatRawPageContent(pageContent: string, pageNumber: number) {
   if (pageContent.trim() == '' || pageContent.trim().length < 12) {
     console.log('Empty page content, skipping.');
     return;
@@ -109,9 +139,7 @@ async function generatePageContent(pageContent: string, pageNumber: number) {
     console.log(`Generating page content for "${pageContent}"`);
   }
 
-  const request = summaryTemplate.value + pageContent;
-  const pageSummary = await textToText(request, modelStory.value);
-  const illustrationRequest = style.value.illustrationTemplate + pageSummary;
+  const illustrationRequest = style.value.illustrationTemplate + pageContent;
   const pageIllustration = await textToImage(
     illustrationRequest,
     modelIllustration.value
@@ -120,7 +148,6 @@ async function generatePageContent(pageContent: string, pageNumber: number) {
     text: pageContent,
     illustration: URL.createObjectURL(pageIllustration),
     pageNumber: pageNumber,
-    summary: pageSummary,
   });
 }
 
@@ -151,6 +178,16 @@ async function saveStoryPdf() {
         emit-value
         :options="styles"
         label="Style:"
+      >
+        <template v-slot:append>
+          <q-avatar icon="style" text-color="white" />
+        </template>
+      </q-select>
+      <q-select
+        standout
+        v-model="model"
+        :options="models"
+        label="Story creation model:"
       >
         <template v-slot:append>
           <q-avatar icon="style" text-color="white" />

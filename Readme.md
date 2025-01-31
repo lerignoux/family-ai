@@ -3,6 +3,8 @@ a web app proposing multiple ai services.
 the fefront end is plugged to various baarious backend services
 
 ## tldr:
+setup secrets in `secrets` folder
+
 ```
 docker compose up
 ```
@@ -14,14 +16,14 @@ The personal assistant web app.
 ## whisper:
 A speech to text utility using [whisper](https://github.com/openai/whisper)
 
-## Coqui TTS:
+## tts:
 A text to speech utility using [coqui TTS](https://github.com/coqui-ai/TTS)
 
 ### Api usage:
 see Swagger available at `http://localhost:5174/docs#`
 
 ## ollama:
-A LLM Ai assistant
+A LLM Ai assistant using various models locally and cloud.
 
 ## Build:
 Base image building:

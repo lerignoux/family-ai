@@ -1,4 +1,6 @@
-
+secrets/**.txt
+!secrets/**.tpl.txt
+!secrets/**.md
 
 ollama/models/blobs
 ollama/models/manifests

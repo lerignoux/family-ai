@@ -14,12 +14,35 @@ export async function textToText(prompt: string, model: string) {
   };
   // fetch('http://localhost:5175/chat', requestOptions)
   const rawResponse = await fetch(
-    'https://ai.shanghai.laurent.erignoux.fr:9443/ollama',
+    'https://ai.shanghai.laurent.erignoux.fr:9443/ollama/chat',
     requestOptions
   );
   const jsonResponse = await rawResponse.json();
   const data = jsonResponse.response;
   console.log(`Ai answer: "${data}"`);
+  return data;
+}
+
+export async function textToStory(prompt: string, model: string, chapter_count: number) {
+  const requestOptions = {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: model,
+      subject: prompt,
+      format: 'json',
+      stream: false,
+      chapter_count: chapter_count,
+    }),
+  };
+  // fetch('http://localhost:5175/story', requestOptions)
+  const rawResponse = await fetch(
+    'https://ai.shanghai.laurent.erignoux.fr:9443/ollama/story',
+    requestOptions
+  );
+  const jsonResponse = await rawResponse.json();
+  const data = jsonResponse.response;
+  console.log(`Ai story: "${data}"`);
   return data;
 }
 

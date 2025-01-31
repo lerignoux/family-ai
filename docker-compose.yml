@@ -38,6 +38,8 @@ services:
     ports:
       - 5175:80
     restart: always
+    secrets:
+      - mistral_api_key
     volumes:
       - ./ollama:/ollama
 
@@ -138,6 +140,10 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./certificates:/etc/certificates
+
+secrets:
+  mistral_api_key:
+    file: ./secrets/mistral_api_key.txt
 
 networks:
   personal-ai:
