@@ -3,7 +3,10 @@ import { ref } from 'vue';
 import { speechToText, textToImage } from '../components/API';
 
 const userInput = ref('a cosmonaut riding a horse on the moon.');
-const model = ref({ label: 'Epic Realism', value: 'epicrealismXL_v5Ultimate.safetensors' });
+const model = ref({
+  label: 'Epic Realism',
+  value: 'epicrealismXL_v5Ultimate.safetensors',
+});
 const models = ref([
   { label: 'Epic Realism', value: 'epicrealismXL_v5Ultimate.safetensors' },
   { label: 'Flux Dev', value: 'flux1-dev-fp8_comfy.safetensors' },
@@ -51,22 +54,30 @@ async function handleUserQuery(query: string, model: string) {
 </script>
 
 <template>
-  <div class="painting">
-    <div class="painting-options">
-      <q-select
-        v-model="model"
-        standout="bg-grey-9 text-white"
-        :options="models"
-        label="Model:"
-      >
-        <template v-slot:append>
-          <q-avatar icon="mdi-data-matrix" text-color="white"/>
-        </template>
-      </q-select>
+  <div class="painting col wrap justify-start items-center">
+    <div class="painting-options row items-start wrap">
+      <div class="col-grow-xs col-md">
+        <q-select
+          v-model="model"
+          standout="bg-grey-9 text-white"
+          dark
+          text-color="white"
+          :options="models"
+          label="Model:"
+        >
+          <template v-slot:append>
+            <q-avatar icon="mdi-data-matrix" text-color="white" />
+          </template>
+        </q-select>
+      </div>
     </div>
 
-    <div class="painting-actions">
-      <div class="chat-action" @mousedown="recordAudio" @mouseup="stopAudio">
+    <div class="painting-actions row items-center wrap">
+      <div
+        class="painting-action col-auto"
+        @mousedown="recordAudio"
+        @mouseup="stopAudio"
+      >
         <q-btn
           id="recordButton"
           round
@@ -74,75 +85,67 @@ async function handleUserQuery(query: string, model: string) {
           :loading="querying"
           :disable="querying && !recording"
           icon="mic"
-          size="xl"
+          size="l"
         />
       </div>
 
-      <q-input
-        class="painting-box painting-action"
-        outlined
-        v-model="userInput"
-        label="Create an image of:"
-        v-on:keyup.enter="handleUserInput"
-      />
-      <q-btn
-        class="painting-action"
-        @click="handleUserInput"
-        :loading="querying"
-        :disable="recording || querying"
-        id="queryButton"
-        round
-        color="primary"
-        icon="message"
-        size="xl"
-      />
-      <q-img
-        :src="imageUrl"
-        spinner-color="white"
-        style="height: 512px; max-width: 512px"
-      />
+      <div class="painting-input col-grow">
+        <q-input
+          class="painting-box painting-action"
+          outlined
+          v-model="userInput"
+          label="Create an image of:"
+          v-on:keyup.enter="handleUserInput"
+        />
+      </div>
+
+      <div class="col-auto">
+        <q-btn
+          class="painting-action"
+          @click="handleUserInput"
+          :loading="querying"
+          :disable="recording || querying"
+          id="queryButton"
+          round
+          color="primary"
+          icon="message"
+          size="l"
+        />
+      </div>
+
+      <div class="painting-result col-grow">
+        <q-responsive :ratio="1" style="min-height: 200px; min-width: 200px">
+          <q-img :src="imageUrl" spinner-color="white" />
+        </q-responsive>
+      </div>
     </div>
   </div>
 </template>
 
 <style>
 .painting {
-  width: 80%;
+  margin-left: 20px;
+  margin-right: 20px;
   height: 100%;
-  margin-left: 10%;
-  margin-right: 10%;
-  display: flex;
-  flex-direction: column;
-  padding: 6px;
 }
 
 .painting-options {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  flex-wrap: no-wrap;
-  justify-content: space-around;
   gap: 20px;
+  margin-bottom: 20px;
   .q-field__native span {
-    color: $negative
+    color: white;
   }
 }
 
+.painting-input {
+  min-width: 100px;
+}
+
 .painting-actions {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  flex-wrap: no-wrap;
-  justify-content: space-around;
-  gap: 20px;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
-.painting {
-  padding: 10px;
-}
-
-.painting-box {
-  width: 100%;
-  min-width: 200px;
+.painting-result {
 }
 </style>

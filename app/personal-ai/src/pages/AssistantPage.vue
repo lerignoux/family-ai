@@ -85,34 +85,40 @@ async function handleUserQuery(query: string) {
     querying.value = false;
     throw e;
   }
-
 }
 </script>
 
 <template>
-  <div class="assistant">
-    <div class="chat-options">
-      <q-select
-        standout="bg-grey-9 text-white"
-        v-model="model"
-        emit-value
-        :options="models"
-        label="Model:"
-      >
-        <template v-slot:append>
-          <q-avatar icon="mdi-data-matrix" text-color="white"/>
-        </template>
-      </q-select>
-      <q-item tag="label" class="bg-grey-10" v-ripple>
-        <q-checkbox
-          left-label
-          v-model="autoRead"
-          checked-icon="mic"
-          unchecked-icon="keyboard"
-          label="Auto play audio"
-          indeterminate-icon="help"
-        />
-      </q-item>
+  <div class="assistant col wrap justify-start items-center">
+    <div class="chat-options row items-start wrap">
+      <div class="col-grow-xs col-md">
+        <q-select
+          standout="bg-grey-9 text-white"
+          dark
+          text-color="white"
+          v-model="model"
+          emit-value
+          :options="models"
+          label="Model:"
+        >
+          <template v-slot:append>
+            <q-avatar icon="mdi-data-matrix" text-color="white" />
+          </template>
+        </q-select>
+      </div>
+
+      <div class="col-grow-xs col-md">
+        <q-item tag="label" class="bg-grey-10" v-ripple>
+          <q-checkbox
+            left-label
+            v-model="autoRead"
+            checked-icon="mic"
+            unchecked-icon="keyboard"
+            label="Auto play audio"
+            indeterminate-icon="help"
+          />
+        </q-item>
+      </div>
     </div>
 
     <div class="chat">
@@ -129,9 +135,9 @@ async function handleUserQuery(query: string) {
       </q-chat-message>
     </div>
 
-    <div class="chat-actions">
+    <div class="chat-actions row items-center wrap">
       <div
-        class="chat-action"
+        class="chat-action col-auto"
         @touchstart="recordAudio"
         @touchend="stopAudio"
         @mousedown="recordAudio"
@@ -144,63 +150,55 @@ async function handleUserQuery(query: string) {
           :loading="querying"
           :disable="querying && !recording"
           icon="mic"
-          size="xl"
+          size="l"
         />
       </div>
-      <q-input
-        class="chat-box chat-action"
-        outlined
-        v-model="userInput"
-        label="Query Ai"
-        v-on:keyup.enter="handleUserInput"
-      />
-      <q-btn
-        class="chat-action"
-        @click="handleUserInput"
-        :loading="querying"
-        :disable="recording || querying"
-        id="queryButton"
-        round
-        color="primary"
-        icon="message"
-        size="xl"
-      />
+
+      <div class="chat-input col-grow">
+        <q-input
+          class="chat-box chat-action"
+          outlined
+          v-model="userInput"
+          label="Query Ai"
+          v-on:keyup.enter="handleUserInput"
+        />
+      </div>
+
+      <div class="col-auto">
+        <q-btn
+          class="chat-action"
+          @click="handleUserInput"
+          :loading="querying"
+          :disable="recording || querying"
+          id="queryButton"
+          round
+          color="primary"
+          icon="message"
+          size="l"
+        />
+      </div>
     </div>
   </div>
 </template>
 
 <style>
 .assistant {
-  width: 80%;
+  margin-left: 20px;
+  margin-right: 20px;
   height: 100%;
-  max-height: 100%;
-  margin-left: 10%;
-  margin-right: 10%;
-  display: flex;
-  flex-direction: column;
-  padding: 6px;
 }
 
 .chat-options {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  flex-wrap: no-wrap;
-  justify-content: space-around;
   gap: 20px;
+  margin-bottom: 20px;
   .q-field__native span {
-    color: $negative
+    color: white;
   }
 }
 
 .chat-actions {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  flex-wrap: no-wrap;
-  justify-content: space-around;
-  gap: 20px;
-  height: 72px;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .chat {

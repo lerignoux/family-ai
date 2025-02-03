@@ -5,10 +5,8 @@ import { playAudio } from '../components/utils';
 
 const userInput = ref('Who are you');
 const aiTranslation = ref('');
-const language_src = ref(
-  { label: 'English', value: 'en' });
-const language_dst = ref(
-  { label: 'French', value: 'fr' });
+const language_src = ref({ label: 'English', value: 'en' });
+const language_dst = ref({ label: 'French', value: 'fr' });
 const languages = ref([
   { label: 'English', value: 'en' },
   { label: 'French', value: 'fr' },
@@ -70,42 +68,52 @@ async function handleUserQuery(query: string) {
 </script>
 
 <template>
-  <div class="translator">
-    <div class="translate-options">
-      <q-select
-        standout="bg-grey-9 text-white"
-        v-model="language_src"
-        :options="languages"
-        label="From:"
-      >
-        <template v-slot:append>
-          <q-avatar icon="mdi-translate" text-color="white"/>
-        </template>
-      </q-select>
-      <q-select
-        standout="bg-grey-9 text-white"
-        v-model="language_dst"
-        :options="languages"
-        label="To:"
-      >
-        <template v-slot:append>
-          <q-avatar icon="mdi-translate" text-color="white"/>
-        </template>
-      </q-select>
-      <q-item tag="label" class="bg-grey-10" v-ripplet>
-        <q-checkbox
-          left-label
-          v-model="autoRead"
-          checked-icon="mic"
-          unchecked-icon="keyboard"
-          label="Auto play audio"
-          indeterminate-icon="help"
-        />
-      </q-item>
+  <div class="translator col wrap justify-start items-center">
+    <div class="translate-options row items-start wrap">
+      <div class="col-grow-xs col-md">
+        <q-select
+          standout="bg-grey-9 text-white"
+          dark
+          text-color="white"
+          v-model="language_src"
+          :options="languages"
+          label="From:"
+        >
+          <template v-slot:append>
+            <q-avatar icon="mdi-translate" text-color="white" />
+          </template>
+        </q-select>
+      </div>
+
+      <div class="col-grow-xs col-md">
+        <q-select
+          standout="bg-grey-9 text-white"
+          v-model="language_dst"
+          :options="languages"
+          label="To:"
+        >
+          <template v-slot:append>
+            <q-avatar icon="mdi-translate" text-color="white" />
+          </template>
+        </q-select>
+      </div>
+
+      <div class="col-grow-xs col-md">
+        <q-item tag="label" class="bg-grey-10" v-ripplet>
+          <q-checkbox
+            left-label
+            v-model="autoRead"
+            checked-icon="mic"
+            unchecked-icon="keyboard"
+            label="Auto play audio"
+            indeterminate-icon="help"
+          />
+        </q-item>
+      </div>
     </div>
 
-    <div class="translate">
-      <div class="q-pa-md translate-source" style="width: 400px">
+    <div class="translate row items-center wrap">
+      <div class="translate-input col-grow">
         <q-input
           v-model="userInput"
           v-on:keyup.enter="handleUserInput"
@@ -115,9 +123,9 @@ async function handleUserQuery(query: string) {
         />
       </div>
 
-      <div class="translate-actions">
+      <div class="translate-actions col-auto justify-start items-center">
         <div
-          class="chat-action"
+          class="translate-action"
           @touchstart="recordAudio"
           @touchend="stopAudio"
           @mousedown="recordAudio"
@@ -130,7 +138,7 @@ async function handleUserQuery(query: string) {
             :loading="querying"
             :disable="querying && !recording"
             icon="mic"
-            size="xl"
+            size="l"
           />
         </div>
         <q-btn
@@ -142,11 +150,11 @@ async function handleUserQuery(query: string) {
           round
           color="primary"
           icon="forward"
-          size="xl"
+          size="l"
         />
       </div>
 
-      <div class="q-pa-md translate-result" style="width: 400px">
+      <div class="translate-content col-grow">
         <q-input
           v-model="aiTranslation"
           filled
@@ -161,37 +169,29 @@ async function handleUserQuery(query: string) {
 
 <style>
 .translator {
-  width: 80%;
+  margin-left: 20px;
+  margin-right: 20px;
   height: 100%;
-  margin-left: 10%;
-  margin-right: 10%;
-  display: flex;
-  flex-direction: column;
-  padding: 6px;
 }
 
 .translate-options {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  flex-wrap: no-wrap;
-  justify-content: space-around;
   gap: 20px;
+  margin-bottom: 20px;
   .q-field__native span {
-    color: $negative
+    color: white;
   }
 }
 
 .translate-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-wrap: no-wrap;
-  justify-content: space-around;
-  gap: 20px;
+  gap: 10px;
+  .translate-action {
+    margin-top: 10px;
+    margin-bottom: 20px;
+  }
 }
 
 .translate {
+  gap: 20px;
   padding: 10px;
   display: flex;
   flex-direction: row;
@@ -199,11 +199,11 @@ async function handleUserQuery(query: string) {
   justify-content: center;
 }
 
-.translate-source {
+.translate-input {
   min-width: 200px;
 }
 
-.translate-result {
+.translate-content {
   min-width: 200px;
 }
 </style>
