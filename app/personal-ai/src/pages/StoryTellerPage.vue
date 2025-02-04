@@ -334,55 +334,58 @@ async function saveStoryPdf() {
 
     <div class="story-content row items-center">
       <div class="col">
-        <q-carousel
-          v-model="storyIndex"
-          transition-prev="slide-right"
-          transition-next="slide-left"
-          animated
-          navigation
-          control-color="primary"
-          swipeable
-          padding
-          arrows
-          class="shadow-2"
-        >
-          <q-carousel-slide
-            v-for="(storyPage, index) in formattedStory"
-            :key="index"
-            :name="index"
-            class="column no-wrap"
-            draggable="false"
+        <q-responsive :ratio="2">
+          <q-carousel
+            v-model="storyIndex"
+            transition-prev="slide-right"
+            transition-next="slide-left"
+            animated
+            navigation
+            control-color="primary"
+            swipeable
+            padding
+            class="shadow-2"
           >
-            <div
-              class="row fit justify-start items-center q-col-gutter no-wrap"
+            <q-carousel-slide
+              v-for="(storyPage, index) in formattedStory"
+              :key="index"
+              :name="index"
+              class="column wrap"
+              draggable="false"
             >
               <q-img
+                style="width: 45%; min-width: 150px"
                 class="rounded-borders full-height"
-                ratio="1"
                 src="src/assets/page-background.png"
               >
-                <div class="absolute-full text-subtitle2 flex flex-center">
-                  <div class="story-text">
+                <div
+                  class="absolute-full text-subtitle2 flex flex-center;"
+                  style="overflow-y: scroll"
+                >
+                  <div
+                    class="story-text"
+                    style="min-height: 150px; min-width: 150px"
+                  >
                     {{ storyPage.text }}
                   </div>
                 </div>
               </q-img>
               <q-img
+                style="width: 45%; min-width: 150px"
                 class="rounded-borders full-height"
-                ratio="1/1"
                 :src="storyPage.illustration"
               >
               </q-img>
-            </div>
-          </q-carousel-slide>
-          <template v-slot:navigation-icon="{ onClick, index }">
-            <q-btn @click="onClick">
-              <q-avatar size="56px" square>
-                <img :src="formattedStory[index].illustration" />
-              </q-avatar>
-            </q-btn>
-          </template>
-        </q-carousel>
+            </q-carousel-slide>
+            <template v-slot:navigation-icon="{ onClick, index }">
+              <q-btn @click="onClick">
+                <q-avatar size="56px" square>
+                  <img :src="formattedStory[index].illustration" />
+                </q-avatar>
+              </q-btn>
+            </template>
+          </q-carousel>
+        </q-responsive>
       </div>
     </div>
   </div>
@@ -424,6 +427,5 @@ async function saveStoryPdf() {
 
 .story-text {
   color: black;
-  padding: 12px;
 }
 </style>
