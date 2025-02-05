@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { textToStory, speechToText, textToImage } from '../components/API';
+import { textToStory, textToImage } from '../components/API';
+import voiceInput from '../components/VoiceInput.vue';
 
 import { jsPDF } from 'jspdf';
 
@@ -76,31 +77,10 @@ const storyIndex = ref(0);
 const formattedStory = ref<StoryBook>([]);
 
 const querying = ref(false);
-const recording = ref(false);
 
-var audioRecorder: MediaRecorder;
-var audioDevice = navigator.mediaDevices.getUserMedia({ audio: true });
-audioDevice.then((stream) => {
-  audioRecorder = new MediaRecorder(stream);
-  audioRecorder.ondataavailable = handleUserStream;
-});
-
-function recordAudio() {
-  recording.value = true;
-  querying.value = true;
-  audioRecorder.start();
-}
-
-function stopAudio() {
-  audioRecorder.stop();
-  recording.value = false;
-}
-
-async function handleUserStream(event: BlobEvent) {
-  console.log('Audio data available.');
-  const text = await speechToText(event.data);
+async function recordCallback(text: string) {
   userInput.value = text;
-  await handleUserQuery(text);
+  handleUserInput();
 }
 
 function handleUserInput() {
@@ -284,18 +264,6 @@ async function saveStoryPdf() {
     </div>
 
     <div class="story-actions row items-center wrap">
-      <div class="col-auto" @mousedown="recordAudio" @mouseup="stopAudio">
-        <q-btn
-          id="recordButton"
-          round
-          :color="recording ? 'secondary' : 'primary'"
-          :loading="querying"
-          :disable="querying && !recording"
-          icon="mic"
-          size="l"
-        />
-      </div>
-
       <div class="story-input col-grow">
         <q-input
           class="story-input"
@@ -311,7 +279,7 @@ async function saveStoryPdf() {
           class="story-action"
           @click="handleUserInput"
           :loading="querying"
-          :disable="recording || querying"
+          :disable="querying"
           id="queryButton"
           round
           color="primary"
@@ -388,6 +356,8 @@ async function saveStoryPdf() {
         </q-responsive>
       </div>
     </div>
+
+    <voiceInput @record-available="recordCallback" />
   </div>
 </template>
 

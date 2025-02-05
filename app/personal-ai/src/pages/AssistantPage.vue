@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { speechToText, textToText, textToSpeech } from '../components/API';
+import { textToText, textToSpeech } from '../components/API';
 import { playAudio } from '../components/utils';
+import voiceInput from '../components/VoiceInput.vue';
 
 const userInput = ref('Who are you');
 const model = ref('gemma:7b');
@@ -22,31 +23,10 @@ const chat = ref([
 ]);
 const autoRead = ref(true);
 const querying = ref(false);
-const recording = ref(false);
 
-var audioRecorder: MediaRecorder;
-var audioDevice = navigator.mediaDevices.getUserMedia({ audio: true });
-audioDevice.then((stream) => {
-  audioRecorder = new MediaRecorder(stream);
-  audioRecorder.ondataavailable = handleUserStream;
-});
-
-function recordAudio() {
-  recording.value = true;
-  querying.value = true;
-  audioRecorder.start();
-}
-
-function stopAudio() {
-  recording.value = false;
-  audioRecorder.stop();
-}
-
-async function handleUserStream(event: BlobEvent) {
-  console.log('Audio data available.');
-  const text = await speechToText(event.data);
+async function recordCallback(text: string) {
   userInput.value = text;
-  await handleUserQuery(text);
+  handleUserInput();
 }
 
 function handleUserInput() {
@@ -136,24 +116,6 @@ async function handleUserQuery(query: string) {
     </div>
 
     <div class="chat-actions row items-center wrap">
-      <div
-        class="chat-action col-auto"
-        @touchstart="recordAudio"
-        @touchend="stopAudio"
-        @mousedown="recordAudio"
-        @mouseup="stopAudio"
-      >
-        <q-btn
-          id="recordButton"
-          round
-          :color="recording ? 'secondary' : 'primary'"
-          :loading="querying"
-          :disable="querying && !recording"
-          icon="mic"
-          size="l"
-        />
-      </div>
-
       <div class="chat-input col-grow">
         <q-input
           class="chat-box chat-action"
@@ -169,7 +131,7 @@ async function handleUserQuery(query: string) {
           class="chat-action"
           @click="handleUserInput"
           :loading="querying"
-          :disable="recording || querying"
+          :disable="querying"
           id="queryButton"
           round
           color="primary"
@@ -177,6 +139,8 @@ async function handleUserQuery(query: string) {
           size="l"
         />
       </div>
+
+      <voiceInput @record-available="recordCallback" />
     </div>
   </div>
 </template>
