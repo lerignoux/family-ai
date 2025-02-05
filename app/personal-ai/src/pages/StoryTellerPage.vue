@@ -51,26 +51,34 @@ const storyLength = ref(4);
 const styles = ref([
   {
     label: 'Oniric',
-    illustrationTemplate: 'An oniric and colorful painting of ',
+    illustrationTemplateSuffix:
+      ', colorful and oniric painting style, beautiful, dream.',
   },
   {
     label: 'Oil painting',
-    illustrationTemplate:
-      'oil painting, heavy strokes, paint dripping, stunning masterpiece, Leonid Afremov details of ',
+    illustrationTemplateSuffix:
+      ', oil painting style, heavy strokes, paint dripping, stunning masterpiece, Leonid Afremov details.',
   },
   {
     label: 'Chinese painting',
-    illustrationTemplate:
-      'Traditional chinese painting style asian chinese culture beautiful chinese ink of ',
+    illustrationTemplateSuffix:
+      ', traditional chinese painting style, asian, chinese culture, beautiful, chinese ink.',
+  },
+  {
+    label: 'Crayon drawing',
+    illustrationTemplateSuffix:
+      ', color crayon drawing style with pen visible mark, beautiful, colorful.',
   },
   {
     label: 'Scary',
-    illustrationTemplate: 'A black and white scary painting of ',
+    illustrationTemplatePrefix: 'A black and white scary painting of ',
   },
 ]);
 const style = ref({
   label: 'Oniric',
-  illustrationTemplate: 'An oniric and colorful painting of ',
+  illustrationTemplatePrefix:
+    ', colorful and oniric painting style, beautiful, dream.',
+  illustrationTemplateSuffix: undefined,
 });
 const rawStory = ref('');
 const storyIndex = ref(0);
@@ -107,8 +115,15 @@ async function handleUserQuery(query: string) {
     var i: number;
     for (i = 0; i < pageCount; i++) {
       const chapterKey = `chapter ${i}`;
-      const illustrationRequest =
-        style.value.illustrationTemplate + story[chapterKey];
+      var illustrationRequest = story[chapterKey];
+      if (style.value.illustrationTemplatePrefix !== undefined) {
+        illustrationRequest =
+          style.value.illustrationTemplatePrefix + illustrationRequest;
+      }
+      if (style.value.illustrationTemplateSuffix !== undefined) {
+        illustrationRequest =
+          illustrationRequest + style.value.illustrationTemplateSuffix;
+      }
       const pageIllustration = await textToImage(
         illustrationRequest,
         modelIllustration.value.value
@@ -140,7 +155,16 @@ async function formatRawPageContent(pageContent: string, pageNumber: number) {
     console.log(`Generating page content for "${pageContent}"`);
   }
 
-  const illustrationRequest = style.value.illustrationTemplate + pageContent;
+  var illustrationRequest = pageContent;
+  if (style.value.illustrationTemplatePrefix !== undefined) {
+    illustrationRequest =
+      style.value.illustrationTemplatePrefix + illustrationRequest;
+  }
+  if (style.value.illustrationTemplateSuffix !== undefined) {
+    illustrationRequest =
+      illustrationRequest + style.value.illustrationTemplateSuffix;
+  }
+
   const pageIllustration = await textToImage(
     illustrationRequest,
     modelIllustration.value.value
