@@ -29,6 +29,7 @@
           v-bind="link"
         />
         <q-separator />
+        <q-item-label header> Powered by: </q-item-label>
         <EssentialLink
           v-for="link in refLinksList"
           :key="link.title"
@@ -45,9 +46,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import EssentialLink, {
-  EssentialLinkProps,
-} from 'components/EssentialLink.vue';
+import EssentialLink, { ExternalLinkProps } from 'components/ExternalLink.vue';
 import PageLink, { PageLinkProps } from 'components/PageLink.vue';
 
 defineOptions({
@@ -80,48 +79,42 @@ const pageLinksList: PageLinkProps[] = [
     link: 'story_teller',
   },
 ];
-const refLinksList: EssentialLinkProps[] = [
+const refLinksList: ExternalLinkProps[] = [
   {
-    title: 'Docs',
+    title: 'Argos translate',
+    caption: 'argosopentech.com',
+    icon: 'img:icons/argos.png',
+    link: 'https://www.argosopentech.com/',
+  },
+  {
+    title: 'Comfy',
+    caption: 'comfy.org',
+    icon: 'img:icons/comfy.png',
+    link: 'https://docs.comfy.org',
+  },
+  {
+    title: 'CoquiTTS',
+    caption: 'docs.coqui.ai',
+    icon: 'img:icons/coquitts.png',
+    link: 'https://docs.coqui.ai/en/dev/models/xtts.html',
+  },
+  {
+    title: 'Ollama',
+    caption: 'ollama.com',
+    icon: 'img:icons/ollama.png',
+    link: 'https://ollama.com/',
+  },
+  {
+    title: 'Quasar',
     caption: 'quasar.dev',
-    icon: 'school',
+    icon: 'img:icons/quasar.png',
     link: 'https://quasar.dev',
   },
   {
-    title: 'Github',
-    caption: 'github.com/quasarframework',
-    icon: 'code',
-    link: 'https://github.com/quasarframework',
-  },
-  {
-    title: 'Discord Chat Channel',
-    caption: 'chat.quasar.dev',
-    icon: 'chat',
-    link: 'https://chat.quasar.dev',
-  },
-  {
-    title: 'Forum',
-    caption: 'forum.quasar.dev',
-    icon: 'record_voice_over',
-    link: 'https://forum.quasar.dev',
-  },
-  {
-    title: 'Twitter',
-    caption: '@quasarframework',
-    icon: 'rss_feed',
-    link: 'https://twitter.quasar.dev',
-  },
-  {
-    title: 'Facebook',
-    caption: '@QuasarFramework',
-    icon: 'public',
-    link: 'https://facebook.quasar.dev',
-  },
-  {
-    title: 'Quasar Awesome',
-    caption: 'Community Quasar projects',
-    icon: 'favorite',
-    link: 'https://awesome.quasar.dev',
+    title: 'Whisper',
+    caption: 'openai.com/index/whisper',
+    icon: 'img:icons/openai.svg#icon-1',
+    link: 'https://openai.com/index/whisper/',
   },
 ];
 

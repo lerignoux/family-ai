@@ -13,17 +13,17 @@
 
 <script setup lang="ts">
 defineOptions({
-  name: 'EssentialLink',
+  name: 'ExternalLink',
 });
 
-export interface EssentialLinkProps {
+export interface ExternalLinkProps {
   title: string;
   caption?: string;
   link?: string;
   icon?: string;
 }
 
-withDefaults(defineProps<EssentialLinkProps>(), {
+withDefaults(defineProps<ExternalLinkProps>(), {
   caption: '',
   link: '#',
   icon: '',
