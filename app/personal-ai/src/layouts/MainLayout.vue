@@ -101,6 +101,12 @@ const refLinksList: ExternalLinkProps[] = [
     link: 'https://docs.coqui.ai/en/dev/models/xtts.html',
   },
   {
+    title: 'Kokoro-82M',
+    caption: 'huggingface.co/hexgrad/Kokoro-82M',
+    icon: 'img:icons/hexgrad.png',
+    link: 'https://huggingface.co/hexgrad/Kokoro-82M',
+  },
+  {
     title: 'Ollama',
     caption: 'ollama.com',
     icon: 'img:icons/ollama.png',
