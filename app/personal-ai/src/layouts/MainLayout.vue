@@ -16,6 +16,7 @@
           </q-avatar>
           Personal Ai Hub
         </q-toolbar-title>
+        <AudioReader ref="audioReader" />
       </q-toolbar>
     </q-header>
 
@@ -48,6 +49,7 @@
 import { ref } from 'vue';
 import EssentialLink, { ExternalLinkProps } from 'components/ExternalLink.vue';
 import PageLink, { PageLinkProps } from 'components/PageLink.vue';
+import AudioReader from 'components/AudioReader.vue';
 
 defineOptions({
   name: 'MainLayout',

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { translateText, textToSpeech } from '../components/API';
-import { playAudio } from '../components/utils';
+import { inject, ref } from 'vue';
+import { translateText } from '../components/API';
 import voiceInput from '../components/VoiceInput.vue';
 
+const bus = inject<any>('bus');
 const userInput = ref('Who are you');
 const aiTranslation = ref('');
 const language_src = ref({ label: 'English', value: 'en' });
@@ -15,7 +15,6 @@ const languages = ref([
   { label: 'Spanish', value: 'es' },
   { label: 'Japanese', value: 'jp' },
 ]);
-const autoRead = ref(false);
 const querying = ref(false);
 
 async function recordCallback(text: string) {
@@ -36,14 +35,7 @@ async function handleUserQuery(query: string) {
   );
   aiTranslation.value = translated;
   querying.value = false;
-  if (autoRead.value) {
-    let language = 'en';
-    if (language_dst.value.value != 'en') {
-      language = `${language_dst.value.value}-${language_dst.value.value}`;
-    }
-    const audio = await textToSpeech(translated, language);
-    playAudio(audio);
-  }
+  bus.emit('read-text', translated);
 }
 </script>
 
@@ -76,19 +68,6 @@ async function handleUserQuery(query: string) {
             <q-avatar icon="mdi-translate" text-color="white" />
           </template>
         </q-select>
-      </div>
-
-      <div class="col-grow-xs col-md">
-        <q-item tag="label" class="bg-grey-10" v-ripplet>
-          <q-checkbox
-            left-label
-            v-model="autoRead"
-            checked-icon="mic"
-            unchecked-icon="keyboard"
-            label="Auto play audio"
-            indeterminate-icon="help"
-          />
-        </q-item>
       </div>
     </div>
 

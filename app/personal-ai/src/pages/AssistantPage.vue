@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { textToText, textToSpeech } from '../components/API';
-import { playAudio } from '../components/utils';
+import { inject, ref } from 'vue';
+import { textToText } from '../components/API';
 import voiceInput from '../components/VoiceInput.vue';
 
+const bus = inject<any>('bus');
 const userInput = ref('Who are you');
 const model = ref('gemma:7b');
 const models = ref([
@@ -21,7 +21,6 @@ const chat = ref([
     text: ['Hello what can I do for you ?'],
   },
 ]);
-const autoRead = ref(true);
 const querying = ref(false);
 
 async function recordCallback(text: string) {
@@ -57,10 +56,7 @@ async function handleUserQuery(query: string) {
     });
     querying.value = false;
     userInput.value = '';
-    if (autoRead.value) {
-      const audio = await textToSpeech(response, 'en');
-      playAudio(audio);
-    }
+    bus.emit('read-text', response);
   } catch (e) {
     querying.value = false;
     throw e;
@@ -85,19 +81,6 @@ async function handleUserQuery(query: string) {
             <q-avatar icon="mdi-data-matrix" text-color="white" />
           </template>
         </q-select>
-      </div>
-
-      <div class="col-grow-xs col-md">
-        <q-item tag="label" class="bg-grey-10" v-ripple>
-          <q-checkbox
-            left-label
-            v-model="autoRead"
-            checked-icon="mic"
-            unchecked-icon="keyboard"
-            label="Auto play audio"
-            indeterminate-icon="help"
-          />
-        </q-item>
       </div>
     </div>
 

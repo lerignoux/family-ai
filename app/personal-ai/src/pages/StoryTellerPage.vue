@@ -16,7 +16,6 @@ const userInput = ref(
   'a little kid day in the wood playing with his animals friends.'
 );
 
-const autoRead = ref(true);
 const model = ref({
   label: 'Mistral',
   value: 'mistral',
@@ -271,19 +270,6 @@ async function saveStoryPdf() {
           standout="bg-grey-9 text-white"
           label="story length"
         />
-      </div>
-
-      <div class="col-grow-xs col-md">
-        <q-item tag="label" class="bg-grey-10" v-ripple>
-          <q-checkbox
-            left-label
-            v-model="autoRead"
-            checked-icon="mic"
-            unchecked-icon="keyboard"
-            label="Auto play audio"
-            indeterminate-icon="help"
-          />
-        </q-item>
       </div>
     </div>
 
