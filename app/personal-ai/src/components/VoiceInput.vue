@@ -12,7 +12,7 @@
       id="recordButton"
       :color="recording ? 'secondary' : 'primary'"
       :loading="recording"
-      icon="mic"
+      :icon="recordIcon"
     />
   </q-page-sticky>
 </template>
@@ -26,15 +26,23 @@ const emit = defineEmits<{
 }>();
 
 var audioRecorder: MediaRecorder;
-
-var audioDevice = navigator.mediaDevices.getUserMedia({ audio: true });
-audioDevice.then((stream) => {
-  audioRecorder = new MediaRecorder(stream);
-  audioRecorder.ondataavailable = handleUserStream;
-});
 const recording = ref(false);
+const recordIcon = ref('perm_camera_mic');
+
+function requestAudioDevice() {
+  var audioDevice = navigator.mediaDevices.getUserMedia({ audio: true });
+  audioDevice.then((stream) => {
+    audioRecorder = new MediaRecorder(stream);
+    audioRecorder.ondataavailable = handleUserStream;
+    recordIcon.value = 'mic';
+  });
+}
 
 function recordAudio() {
+  if (!audioRecorder) {
+    requestAudioDevice();
+    return;
+  }
   console.log('recording.');
   recording.value = true;
   audioRecorder.start();
