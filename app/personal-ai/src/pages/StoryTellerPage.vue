@@ -297,17 +297,6 @@ async function saveStoryPdf() {
           size="l"
         />
       </div>
-
-      <div class="col-auto">
-        <q-btn
-          class="download-pdf"
-          color="primary"
-          icon="mdi-file-download"
-          label="PDF"
-          @click="saveStoryPdf"
-          :disable="querying"
-        />
-      </div>
     </div>
 
     <div class="story-content row items-center">
@@ -364,6 +353,17 @@ async function saveStoryPdf() {
             </template>
           </q-carousel>
         </q-responsive>
+        <div class="pdf-download">
+          <q-btn
+            class="download-pdf"
+            color="primary"
+            icon="mdi-file-download"
+            @click="saveStoryPdf"
+            :disable="querying || formattedStory.length == 0"
+            padding="none"
+          />
+          <q-tooltip> Download story PDF </q-tooltip>
+        </div>
       </div>
     </div>
 
@@ -407,5 +407,11 @@ async function saveStoryPdf() {
 
 .story-text {
   color: black;
+}
+
+.pdf-download {
+  position: relative;
+  margin-top: -50%;
+  float: right;
 }
 </style>
