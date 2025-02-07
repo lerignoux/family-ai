@@ -14,7 +14,7 @@
           <q-avatar>
             <img src="https://cdn.quasar.dev/logo-v2/svg/logo-mono-white.svg" />
           </q-avatar>
-          Personal Ai Hub
+          Family Ai Hub
         </q-toolbar-title>
         <AudioReader ref="audioReader" />
       </q-toolbar>

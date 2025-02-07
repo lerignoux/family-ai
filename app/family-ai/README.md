@@ -1,4 +1,4 @@
-# Personal Ai (personal-ai)
+# Family Ai (family-ai)
 
 A Quasar Project
 

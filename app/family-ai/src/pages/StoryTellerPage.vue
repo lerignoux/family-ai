@@ -201,8 +201,8 @@ async function saveStoryPdf() {
   doc.setFontSize(18);
   doc.text('Story created by', 24, 100, titleOptions);
   doc.setTextColor('#3333ff');
-  doc.textWithLink('personal AI', 67, 100, {
-    url: 'https://github.com/lerignoux/personal-ai',
+  doc.textWithLink('Family Ai', 67, 100, {
+    url: 'https://github.com/lerignoux/family-ai',
   });
   doc.setTextColor(0.0);
   doc.text('assistant.', 98, 100, titleOptions);

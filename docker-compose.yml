@@ -9,7 +9,7 @@ services:
             - driver: nvidia
               capabilities: [gpu]
     networks:
-      - personal-ai
+      - family-ai
     ports:
       - 11434:11434
     restart: always
@@ -29,7 +29,7 @@ services:
             - driver: nvidia
               capabilities: [gpu]
     networks:
-      - personal-ai
+      - family-ai
     ports:
       - 5175:80
     restart: always
@@ -49,7 +49,7 @@ services:
             - driver: nvidia
               capabilities: [gpu]
     networks:
-      - personal-ai
+      - family-ai
     ports:
       - 5176:80
     restart: always
@@ -70,7 +70,7 @@ services:
     environment:
       - ARGOS_LANGUAGES=en,fr,zh,es
     networks:
-      - personal-ai
+      - family-ai
     ports:
       - 5177:80
     volumes:
@@ -91,7 +91,7 @@ services:
               device_ids: ["0"]
               capabilities: [gpu]
     networks:
-      - personal-ai
+      - family-ai
     ports:
       - 8188:8188
     restart: always
@@ -110,7 +110,7 @@ services:
       - ollama-api
       - tts
     networks:
-      - personal-ai
+      - family-ai
     ports:
       - 9000:9000
     restart: always
@@ -122,4 +122,4 @@ secrets:
     file: ./secrets/mistral_api_key.txt
 
 networks:
-  personal-ai:
+  family-ai:

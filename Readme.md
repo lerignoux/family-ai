@@ -1,4 +1,4 @@
-# Personal AI
+# Family AI
 a web app proposing multiple ai services.
 the fefront end is plugged to various baarious backend services
 
@@ -10,7 +10,7 @@ docker compose up
 ```
 open http://localhost:8080
 
-## Personal AI:
+## Family Ai:
 The personal assistant web app.
 
 ## whisper:
