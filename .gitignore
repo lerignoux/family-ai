@@ -27,3 +27,5 @@ comfy/models/**/*.pth
 comfy/models/**/*.pt
 
 certificates
+
+docker-compose.override.yml

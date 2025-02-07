@@ -7,7 +7,6 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ["1"]
               capabilities: [gpu]
     networks:
       - personal-ai
@@ -23,15 +22,11 @@ services:
       - ollama
     build:
       context: ./ollama
-      args:
-        - http_proxy=http://192.168.2.3:6665
-        - https_proxy=http://192.168.2.3:6665
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ["1"]
               capabilities: [gpu]
     networks:
       - personal-ai
@@ -52,7 +47,6 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ["1"]
               capabilities: [gpu]
     networks:
       - personal-ai
@@ -72,7 +66,6 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ["1"]
               capabilities: [gpu]
     environment:
       - ARGOS_LANGUAGES=en,fr,zh,es
@@ -90,9 +83,6 @@ services:
     container_name: comfy
     build:
       context: ./comfy
-      args:
-        - http_proxy=http://192.168.2.3:6665
-        - https_proxy=http://192.168.2.3:6665
     deploy:
       resources:
         reservations:
