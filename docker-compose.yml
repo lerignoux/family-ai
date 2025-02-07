@@ -117,20 +117,6 @@ services:
     volumes:
       - ./app:/app
 
-  nginx:
-    container_name: nginx
-    depends_on:
-      - app
-    image: nginx:stable
-    networks:
-      - personal-ai
-    ports:
-      - 8920:443
-    restart: always
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./certificates:/etc/certificates
-
 secrets:
   mistral_api_key:
     file: ./secrets/mistral_api_key.txt
