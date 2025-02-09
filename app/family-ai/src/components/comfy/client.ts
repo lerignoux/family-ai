@@ -26,12 +26,14 @@ const logger = pino({
 export class ComfyUIClient {
   public serverAddress: string;
   public clientId: string;
+  public scheme: string;
 
   protected ws?: WebSocket;
 
-  constructor(serverAddress: string, clientId: string) {
+  constructor(serverAddress: string, clientId: string, scheme = 'https') {
     this.serverAddress = serverAddress;
     this.clientId = clientId;
+    this.scheme = scheme;
   }
 
   connect() {
@@ -39,8 +41,8 @@ export class ComfyUIClient {
       if (this.ws) {
         await this.disconnect();
       }
-
-      const url = `wss://${this.serverAddress}/ws?clientId=${this.clientId}`;
+      const wsScheme = this.scheme == 'https' ? 'wss' : 'ws';
+      const url = `${wsScheme}://${this.serverAddress}/ws?clientId=${this.clientId}`;
 
       logger.info(`Connecting to url: ${url}`);
 
@@ -73,7 +75,9 @@ export class ComfyUIClient {
   }
 
   async getEmbeddings(): Promise<string[]> {
-    const res = await fetch(`https://${this.serverAddress}/embeddings`);
+    const res = await fetch(
+      `${this.scheme}://${this.serverAddress}/embeddings`
+    );
 
     const json: string[] | ResponseError = await res.json();
 
@@ -85,7 +89,9 @@ export class ComfyUIClient {
   }
 
   async getExtensions(): Promise<string[]> {
-    const res = await fetch(`https://${this.serverAddress}/extensions`);
+    const res = await fetch(
+      `${this.scheme}://${this.serverAddress}/extensions`
+    );
 
     const json: string[] | ResponseError = await res.json();
 
@@ -97,7 +103,7 @@ export class ComfyUIClient {
   }
 
   async queuePrompt(prompt: Prompt): Promise<QueuePromptResult> {
-    const res = await fetch(`https://${this.serverAddress}/prompt`, {
+    const res = await fetch(`${this.scheme}://${this.serverAddress}/prompt`, {
       method: 'POST',
       headers: {
         Accept: 'application/json',
@@ -119,13 +125,16 @@ export class ComfyUIClient {
   }
 
   async interrupt(): Promise<void> {
-    const res = await fetch(`https://${this.serverAddress}/interrupt`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-    });
+    const res = await fetch(
+      `${this.scheme}://${this.serverAddress}/interrupt`,
+      {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+      }
+    );
 
     const json: QueuePromptResult | ResponseError = await res.json();
 
@@ -135,7 +144,7 @@ export class ComfyUIClient {
   }
 
   async editHistory(params: EditHistoryRequest): Promise<void> {
-    const res = await fetch(`https://${this.serverAddress}/history`, {
+    const res = await fetch(`${this.scheme}://${this.serverAddress}/history`, {
       method: 'POST',
       headers: {
         Accept: 'application/json',
@@ -163,10 +172,13 @@ export class ComfyUIClient {
       formData.append('overwrite', overwrite.toString());
     }
 
-    const res = await fetch(`https://${this.serverAddress}/upload/image`, {
-      method: 'POST',
-      body: formData,
-    });
+    const res = await fetch(
+      `${this.scheme}://${this.serverAddress}/upload/image`,
+      {
+        method: 'POST',
+        body: formData,
+      }
+    );
 
     const json: UploadImageResult | ResponseError = await res.json();
 
@@ -191,10 +203,13 @@ export class ComfyUIClient {
       formData.append('overwrite', overwrite.toString());
     }
 
-    const res = await fetch(`https://${this.serverAddress}/upload/mask`, {
-      method: 'POST',
-      body: formData,
-    });
+    const res = await fetch(
+      `${this.scheme}://${this.serverAddress}/upload/mask`,
+      {
+        method: 'POST',
+        body: formData,
+      }
+    );
 
     const json: UploadImageResult | ResponseError = await res.json();
 
@@ -211,7 +226,7 @@ export class ComfyUIClient {
     type: string
   ): Promise<Blob> {
     const res = await fetch(
-      `https://${this.serverAddress}/view?` +
+      `${this.scheme}://${this.serverAddress}/view?` +
         new URLSearchParams({
           filename,
           subfolder,
@@ -228,7 +243,7 @@ export class ComfyUIClient {
     filename: string
   ): Promise<ViewMetadataResponse> {
     const res = await fetch(
-      `https://${this.serverAddress}/view_metadata/${folderName}?filename=${filename}`
+      `${this.scheme}://${this.serverAddress}/view_metadata/${folderName}?filename=${filename}`
     );
 
     const json: ViewMetadataResponse | ResponseError = await res.json();
@@ -241,7 +256,9 @@ export class ComfyUIClient {
   }
 
   async getSystemStats(): Promise<SystemStatsResponse> {
-    const res = await fetch(`https://${this.serverAddress}/system_stats`);
+    const res = await fetch(
+      `${this.scheme}://${this.serverAddress}/system_stats`
+    );
 
     const json: SystemStatsResponse | ResponseError = await res.json();
 
@@ -253,7 +270,7 @@ export class ComfyUIClient {
   }
 
   async getPrompt(): Promise<PromptQueueResponse> {
-    const res = await fetch(`https://${this.serverAddress}/prompt`);
+    const res = await fetch(`${this.scheme}://${this.serverAddress}/prompt`);
 
     const json: PromptQueueResponse | ResponseError = await res.json();
 
@@ -266,7 +283,7 @@ export class ComfyUIClient {
 
   async getObjectInfo(nodeClass?: string): Promise<ObjectInfoResponse> {
     const res = await fetch(
-      `https://${this.serverAddress}/object_info` +
+      `${this.scheme}://${this.serverAddress}/object_info` +
         (nodeClass ? `/${nodeClass}` : '')
     );
 
@@ -281,7 +298,8 @@ export class ComfyUIClient {
 
   async getHistory(promptId?: string): Promise<HistoryResult> {
     const res = await fetch(
-      `https://${this.serverAddress}/history` + (promptId ? `/${promptId}` : '')
+      `${this.scheme}://${this.serverAddress}/history` +
+        (promptId ? `/${promptId}` : '')
     );
 
     const json: HistoryResult | ResponseError = await res.json();
@@ -294,7 +312,7 @@ export class ComfyUIClient {
   }
 
   async getQueue(): Promise<QueueResponse> {
-    const res = await fetch(`https://${this.serverAddress}/queue`);
+    const res = await fetch(`${this.scheme}://${this.serverAddress}/queue`);
 
     const json: QueueResponse | ResponseError = await res.json();
 

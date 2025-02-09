@@ -9,6 +9,13 @@
 // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js
 
 const { configure } = require('quasar/wrappers');
+const DotEnv = require('dotenv');
+
+if ((parsedEnv = DotEnv.config().parsed)) {
+  for (let key in parsedEnv) {
+    process.env[key] = parsedEnv[key];
+  }
+}
 
 module.exports = configure(function (/* ctx */) {
   return {
@@ -53,7 +60,18 @@ module.exports = configure(function (/* ctx */) {
 
       // publicPath: '/',
       // analyze: true,
-      // env: {},
+      env: {
+        API_SCHEME: process.env.API_SCHEME || 'https',
+        API_URL: process.env.API_URL || 'localhost',
+        OLLAMA_PORT: process.env.OLLAMA_PORT,
+        TTS_PORT: process.env.TTS_PORT,
+        TRANSLATE_PORT: process.env.TRANSLATE_PORT,
+        COMFY_PORT: process.env.COMFY_PORT,
+        COMFY_URL:
+          process.env.COMFY_URL ||
+          `${process.env.API_URL}:${process.env.COMFY_PORT}`,
+        COMFY_CLIENT_ID: process.env.COMFY_CLIENT_ID,
+      },
       // rawDefine: {}
       // ignorePublicFolder: true,
       // minify: false,

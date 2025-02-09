@@ -14,7 +14,7 @@ export async function textToText(prompt: string, model: string) {
   };
   // fetch('http://localhost:5175/chat', requestOptions)
   const rawResponse = await fetch(
-    'https://ai.shanghai.laurent.erignoux.fr:9443/ollama/chat',
+    `${process.env.API_SCHEME}://${process.env.API_URL}:${process.env.OLLAMA_PORT}/ollama/chat`,
     requestOptions
   );
   const jsonResponse = await rawResponse.json();
@@ -23,7 +23,11 @@ export async function textToText(prompt: string, model: string) {
   return data;
 }
 
-export async function textToStory(prompt: string, model: string, chapter_count: number) {
+export async function textToStory(
+  prompt: string,
+  model: string,
+  chapter_count: number
+) {
   const requestOptions = {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -37,7 +41,7 @@ export async function textToStory(prompt: string, model: string, chapter_count: 
   };
   // fetch('http://localhost:5175/story', requestOptions)
   const rawResponse = await fetch(
-    'https://ai.shanghai.laurent.erignoux.fr:9443/ollama/story',
+    `${process.env.API_SCHEME}://${process.env.API_URL}:${process.env.OLLAMA_PORT}/ollama/story`,
     requestOptions
   );
   const jsonResponse = await rawResponse.json();
@@ -66,7 +70,7 @@ export async function textToSpeech(text: string, language: string) {
   };
   // fetch('http://localhost:5174/tts', requestOptions)
   const rawResponse = await fetch(
-    'https://ai.shanghai.laurent.erignoux.fr:9443/tts',
+    `${process.env.API_SCHEME}://${process.env.API_URL}:${process.env.TTS_PORT}/tts`,
     requestOptions
   );
   const blobResponse = await rawResponse.blob();
@@ -85,7 +89,7 @@ export async function speechToText(blob: Blob) {
   };
   //fetch('http://localhost:5176/uploadfile', requestOptions)
   const rawResponse = await fetch(
-    'https://ai.shanghai.laurent.erignoux.fr:9443/stt',
+    `${process.env.API_SCHEME}://${process.env.API_URL}:${process.env.TTS_PORT}/stt`,
     requestOptions
   );
   const jsonResponse = await rawResponse.json();
@@ -111,7 +115,7 @@ export async function translateText(
   };
   //fetch('http://localhost:5175/chat', requestOptions)
   const rawResponse = await fetch(
-    'https://ai.shanghai.laurent.erignoux.fr:9443/translate?' + params,
+    `${process.env.API_SCHEME}://${process.env.API_URL}:${process.env.TRANSLATE_PORT}/translate?${params}`,
     requestOptions
   );
   const jsonResponse = await rawResponse.json();
@@ -189,9 +193,13 @@ export async function textToImage(prompt: string, model: string) {
   promptData['3'].inputs.seed = Math.random();
 
   // Create client
-  const serverAddress = 'ai.shanghai.laurent.erignoux.fr:9443/comfy';
-  const clientId = 'baadbabe-b00b-4206-9420-deadd00d1337';
-  const client = new ComfyUIClient(serverAddress, clientId);
+  const serverAddress = `${process.env.COMFY_URL}`;
+  const clientId = process.env.COMFY_CLIENT_ID || '';
+  const client = new ComfyUIClient(
+    serverAddress,
+    clientId,
+    process.env.API_SCHEME
+  );
 
   // Connect to server
   await client.connect();

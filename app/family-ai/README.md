@@ -38,4 +38,5 @@ quasar build
 ```
 
 ### Customize the configuration
-See [Configuring quasar.config.js](https://v2.quasar.dev/quasar-cli-vite/quasar-config-js).
+Update your `.env` (see `.env.dev` or `.env.prod`) for dev and production standard references.
+See [Configuring quasar.config.js](https://v2.quasar.dev/quasar-cli-vite/quasar-config-js) for more detailed customizations.

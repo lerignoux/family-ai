@@ -2,6 +2,8 @@ secrets/**.txt
 !secrets/**.tpl.txt
 !secrets/**.md
 
+app/family-ai/.env
+
 ollama/models/blobs
 ollama/models/manifests
 ollama/__pycache__
