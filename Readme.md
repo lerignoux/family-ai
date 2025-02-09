@@ -25,12 +25,15 @@ see different APIs documentations are available at `http://localhost:8187/docs#`
 ### Argos-translate:
 a neural translation service cf [ArgosOpenTech](https://www.argosopentech.com/)
 
-### TTS:
-A text to speech utility using [coqui TTS](https://github.com/coqui-ai/TTS) and [kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M)
-A speech to text utility using [whisper](https://github.com/openai/whisper)
+### Comfy
+A GenAi tool to generate pictures but not only. cf [comfy.org](https://docs.comfy.org)
 
 ### Ollama:
 A LLM Ai assistant using various models locally and cloud based. based on [Ollama](https://ollama.com/) and [LangChain](https://www.langchain.com/)
+
+### TTS:
+A text to speech utility using [coqui TTS](https://github.com/coqui-ai/TTS) and [kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M)
+A speech to text utility using [whisper](https://github.com/openai/whisper)
 
 ## Build:
 Base image building:
