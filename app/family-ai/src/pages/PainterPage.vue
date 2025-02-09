@@ -120,5 +120,6 @@ async function handleUserQuery(query: string, model: string) {
 }
 
 .painting-result {
+  background-color: #212121;
 }
 </style>
