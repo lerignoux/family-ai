@@ -19,11 +19,10 @@ logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 log = logging.getLogger(__name__)
 
 app = FastAPI()
-origins = [
-    "http://localhost",
-    "http://localhost:9000",
-    "https://ai.shanghai.laurent.erignoux.fr:9443",
-]
+
+origins = ["http://localhost", "https://localhost"]
+if 'HOST' in os.environ:
+    origins.append(f"{os.environ['HOST']}")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -67,7 +66,7 @@ def get_default_llm_handler(model):
 
 
 @app.post("/ollama/chat")
-def read(chat: Chat):
+def chat(chat: Chat):
     """
     Request the ai model to answer to a user query.
     """
@@ -82,12 +81,12 @@ def read(chat: Chat):
     ]
 
     response = llm.invoke(messages)
-    
+
     return {"response": response.content}
 
 
 @app.post("/ollama/story")
-def read(story: Story):
+def story(story: Story):
     """
     Request generating a kid story.
     """
@@ -124,9 +123,8 @@ def read(story: Story):
     return {"response": response}
 
 
-@app.get("/models")
 @app.get("/ollama/models")
-def read_item():
+def models():
     """
     List the currently available models on the llm.
     """

@@ -8,6 +8,8 @@ services:
           devices:
             - driver: nvidia
               capabilities: [gpu]
+    env_file:
+      - .env
     networks:
       - family-ai
     ports:
@@ -28,10 +30,12 @@ services:
           devices:
             - driver: nvidia
               capabilities: [gpu]
+    env_file:
+      - .env
     networks:
       - family-ai
     ports:
-      - 5175:80
+      - 8185:80
     restart: always
     secrets:
       - mistral_api_key
@@ -51,7 +55,7 @@ services:
     networks:
       - family-ai
     ports:
-      - 5176:80
+      - 8186:80
     restart: always
     volumes:
       - ./tts:/tts
@@ -67,12 +71,14 @@ services:
           devices:
             - driver: nvidia
               capabilities: [gpu]
+    env_file:
+      - .env
     environment:
       - ARGOS_LANGUAGES=en,fr,zh,es
     networks:
       - family-ai
     ports:
-      - 5177:80
+      - 8187:80
     volumes:
       - ./argos-translate:/argos-translate
       - ./argos-translate/local:/home/libretranslate/.local
@@ -90,6 +96,8 @@ services:
             - driver: nvidia
               device_ids: ["0"]
               capabilities: [gpu]
+    env_file:
+      - .env
     networks:
       - family-ai
     ports:

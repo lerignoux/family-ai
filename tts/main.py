@@ -24,11 +24,10 @@ debug = os.getenv('DEBUG', '').lower() in ['1', 'true']
 
 
 app = FastAPI()
-origins = [
-    "http://localhost",
-    "http://localhost:9000",
-    "https://ai.shanghai.laurent.erignoux.fr:9443",
-]
+
+origins = ["http://localhost", "https://localhost"]
+if 'HOST' in os.environ:
+    origins.append(f"{os.environ['HOST']}")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
