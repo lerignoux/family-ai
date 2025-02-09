@@ -49,8 +49,10 @@ function recordAudio() {
 }
 
 function stopAudio() {
-  console.log('end recording.');
-  audioRecorder.stop();
+  if (audioRecorder !== undefined) {
+    console.log('end recording.');
+    audioRecorder.stop();
+  }
 }
 
 async function handleUserStream(event: BlobEvent) {
