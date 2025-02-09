@@ -19,7 +19,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { speechToText } from '../components/API';
+import { speechToText } from './api/tts';
 
 const emit = defineEmits<{
   'record-available': [text: string];

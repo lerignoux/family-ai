@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { inject, ref } from 'vue';
-import { textToText } from '../components/API';
+import { textToText } from '../components/api/llm';
 import voiceInput from '../components/VoiceInput.vue';
+import pino from 'pino';
+
+const logger = pino({
+  level: 'info',
+});
 
 const bus = inject<any>('bus');
 const userInput = ref('Who are you');
@@ -35,9 +40,9 @@ function handleUserInput() {
 
 async function handleUserQuery(query: string) {
   if (query == '') {
-    console.log('Empty user query, skipping.');
+    logger.warn('Empty user query, skipping request.');
   }
-  console.log(query);
+  logger.warn(`Asking ${model.value} Ai for ${query}.`);
   chat.value.push({
     name: 'user',
     avatar: 'https://cdn.quasar.dev/img/avatar2.jpg',

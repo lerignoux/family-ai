@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { inject, ref } from 'vue';
-import { translateText } from '../components/API';
+import { translateText } from '../components/api/translate';
 import voiceInput from '../components/VoiceInput.vue';
+import pino from 'pino';
+
+const logger = pino({
+  level: 'info',
+});
 
 const bus = inject<any>('bus');
 const userInput = ref('Who are you');
@@ -28,10 +33,13 @@ async function handleUserInput() {
 }
 
 async function handleUserQuery(query: string) {
+  logger.debug(
+    `Requesting translation ${language_src.value.value}-> ${language_src.value.value}.`
+  );
   const translated = await translateText(
     query,
     language_src.value.value,
-    language_dst.value.value
+    language_src.value.value
   );
   aiTranslation.value = translated;
   querying.value = false;

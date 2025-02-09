@@ -18,7 +18,6 @@ import type {
   ViewMetadataResponse,
 } from './types.js';
 
-// TODO: Make logger customizable
 const logger = pino({
   level: 'info',
 });
@@ -44,12 +43,12 @@ export class ComfyUIClient {
       const wsScheme = this.scheme == 'https' ? 'wss' : 'ws';
       const url = `${wsScheme}://${this.serverAddress}/ws?clientId=${this.clientId}`;
 
-      logger.info(`Connecting to url: ${url}`);
+      logger.debug(`Connecting to url: ${url}`);
 
       this.ws = new WebSocket(url);
 
       this.ws.addEventListener('open', () => {
-        logger.info('Connection open');
+        logger.info('Websocket connection open');
         resolve();
       });
 

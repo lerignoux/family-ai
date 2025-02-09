@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { textToImage } from '../components/API';
+import { textToImage } from '../components/api/comfy';
 import voiceInput from '../components/VoiceInput.vue';
+import pino from 'pino';
+
+const logger = pino({
+  level: 'info',
+});
 
 const userInput = ref('a cosmonaut riding a horse on the moon.');
 const model = ref({
@@ -28,6 +33,7 @@ function handleUserInput() {
 }
 
 async function handleUserQuery(query: string, model: string) {
+  logger.debug(`Requesting image creation using ${model}.`);
   const image = await textToImage(query, model);
   querying.value = false;
   imageUrl.value = URL.createObjectURL(image);

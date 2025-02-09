@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { textToStory, textToImage } from '../components/API';
-import voiceInput from '../components/VoiceInput.vue';
-
 import { jsPDF } from 'jspdf';
+import { textToImage } from '../components/api/comfy';
+import { textToStory } from '../components/api/llm';
+import voiceInput from '../components/VoiceInput.vue';
+import pino from 'pino';
+
+const logger = pino({
+  level: 'info',
+});
 
 interface StoryPage {
   text: string;
@@ -97,7 +102,7 @@ function handleUserInput() {
 
 async function handleUserQuery(query: string) {
   if (query == '') {
-    console.log('Empty user query, skipping.');
+    logger.debug('Empty user query, skipping.');
   }
 
   formattedStory.value = [];
@@ -105,7 +110,7 @@ async function handleUserQuery(query: string) {
 
   const story = await textToStory(query, model.value.value, storyLength.value);
   if (story == undefined) {
-    console.log('Empty story returned.');
+    logger.warn('Empty story returned.');
     querying.value = false;
     return;
   }
@@ -135,7 +140,7 @@ async function handleUserQuery(query: string) {
     }
   } else {
     rawStory.value = story;
-    console.log('Cutting the raw story in pages;');
+    logger.debug('Cutting the raw story in pages;');
 
     let index = 0;
     for (const pageContent of story.split('.')) {
@@ -148,10 +153,10 @@ async function handleUserQuery(query: string) {
 
 async function formatRawPageContent(pageContent: string, pageNumber: number) {
   if (pageContent.trim() == '' || pageContent.trim().length < 12) {
-    console.log('Empty page content, skipping.');
+    logger.warn('Empty page content, skipping.');
     return;
   } else {
-    console.log(`Generating page content for "${pageContent}"`);
+    logger.info(`Generating page content for "${pageContent}"`);
   }
 
   var illustrationRequest = pageContent;

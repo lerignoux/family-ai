@@ -14,7 +14,7 @@
 
 <script setup lang="ts">
 import { inject, ref } from 'vue';
-import { textToSpeech } from '../components/API';
+import { textToSpeech } from './api/tts';
 
 const autoRead = ref(true);
 const bus = inject<any>('bus');
