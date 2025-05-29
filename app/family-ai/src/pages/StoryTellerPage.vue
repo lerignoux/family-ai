@@ -46,6 +46,12 @@ const models = ref([
     description: '"Open source" llama 3.1 model created by meta.',
     type: 'local',
   },
+  {
+    label: 'Gemma 3',
+    value: 'gemma3:12b',
+    description: '"Open source" Gemma3 model.',
+    type: 'local',
+  },
 ]);
 const modelIllustration = ref({
   label: 'EpicRealism XL',

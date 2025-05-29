@@ -10,9 +10,9 @@ const logger = pino({
 
 const bus = inject<any>('bus');
 const userInput = ref('Who are you');
-const model = ref('gemma:7b');
+const model = ref('Gemma');
 const models = ref([
-  { label: 'Gemma', value: 'gemma:7b' },
+  { label: 'Gemma', value: 'gemma3:12b' },
   { label: 'Phi', value: 'phi' },
   { label: 'Lamma2 (Uncensonred)', value: 'llama2-uncensored:7b' },
   { label: 'Deep Seek', value: 'deepseek-llm:7b-chat-q8_0' },
