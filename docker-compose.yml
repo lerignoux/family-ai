@@ -107,6 +107,8 @@ services:
       - ~/app/models/:/ComfyUI/models/
       - ./comfy/output:/ComfyUI/output
       - ./comfy/custom_nodes:/ComfyUI/custom_nodes
+      - ./comfy/user:/ComfyUI/user
+
 
   app:
     container_name: app
