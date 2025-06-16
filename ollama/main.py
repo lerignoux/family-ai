@@ -1,19 +1,17 @@
+import asyncio
 import logging
 import os
 import requests
-from typing import Union
-import subprocess
 import sys
-from bson import ObjectId
+import uuid
 
-from fastapi import FastAPI, File
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from langchain.memory import ConversationBufferMemory
-from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
+
 from langchain_ollama import ChatOllama
 from langchain_mistralai import ChatMistralAI
-from pydantic import BaseModel, Field
-from typing import Optional
+from pydantic import from typing import Optional, Dict
+
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 log = logging.getLogger(__name__)
@@ -86,82 +84,134 @@ def chat(chat: Chat):
     return {"response": response.content}
 
 
+# Store for ongoing story generations
+active_stories: Dict[str, dict] = {}
+
 @app.post("/ollama/story")
-def story(story: Story):
+async def start_story(story: Story):
     """
-    Request generating a kid story using a two-pass approach:
-    1. First pass: Generate the overall story structure and basic content
-    2. Second pass: Polish each chapter to make it more engaging and detailed
+    Start a story generation process and return a story ID for WebSocket connection
     """
-    global current_model
-    global llm
+    story_id = str(uuid.uuid4())
+    active_stories[story_id] = {
+        "status": "initializing",
+        "model": story.model,
+        "subject": story.subject,
+        "chapter_count": story.chapter_count,
+        "current_chapter": 0,
+        "chapters": {},
+        "title": None,
+        "summary": None
+    }
+    
+    # Start the story generation process
+    asyncio.create_task(generate_story(story_id, story))
+    
+    return {"story_id": story_id}
 
-    llm = custom_llm_handlers.get(story.model, get_default_llm_handler(story.model))
 
-    # First pass: Generate story structure
-    story_schema = {
-        "title": "story",
-        "description": f"A kid story about {story.subject}",
-        "type": "object",
-        "properties": {
-            "title": {
-                "type": "string",
-                "description": "The title of the story.",
+async def generate_story(story_id: str, story: Story):
+    """
+    Generate the story in the background and update the story state
+    """
+    try:
+        llm = custom_llm_handlers.get(story.model, get_default_llm_handler(story.model))
+        
+        # First pass: Generate story structure
+        story_schema = {
+            "title": "story",
+            "description": f"A kid story about {story.subject}",
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "The title of the story.",
+                },
+                "summary": {
+                    "type": "string",
+                    "description": "A brief summary of the story's plot and main events.",
+                }
             },
-            "summary": {
-                "type": "string",
-                "description": "A brief summary of the story's plot and main events.",
-            }
-        },
-        "required": ["title", "summary"],
-    }
-
-    # Add chapter properties to schema
-    for chapter_index in range(story.chapter_count):
-        chapter_name = f"chapter_{chapter_index}"
-        story_schema["properties"][chapter_name] = {
-            "type": "string",
-            "description": f"The content of chapter {chapter_index + 1}"
+            "required": ["title", "summary"],
         }
-        story_schema["required"].append(chapter_name)
 
-    structured_llm = llm.with_structured_output(schema=story_schema)
-    initial_story = structured_llm.invoke(
-        f"""Please write a kid story in {story.chapter_count} chapters about {story.subject}.
-        First, create a title and a brief summary of the story.
-        Then, write each chapter with a few sentences that outline the main events.
-        Make sure the story has a clear beginning, middle, and end."""
-    )
+        # Add chapter properties to schema
+        for chapter_index in range(story.chapter_count):
+            chapter_name = f"chapter_{chapter_index}"
+            story_schema["properties"][chapter_name] = {
+                "type": "string",
+                "description": f"The content of chapter {chapter_index + 1}"
+            }
+            story_schema["required"].append(chapter_name)
 
-    # Second pass: Polish each chapter
-    polished_chapters = {}
-    for chapter_index in range(story.chapter_count):
-        chapter_name = f"chapter_{chapter_index}"
-        chapter_content = initial_story[chapter_name]
+        structured_llm = llm.with_structured_output(schema=story_schema)
+        initial_story = structured_llm.invoke(
+            f"""Please write a kid story in {story.chapter_count} chapters about {story.subject}.
+            First, create a title and a brief summary of the story.
+            Then, write each chapter with a few sentences that outline the main events.
+            Make sure the story has a clear beginning, middle, and end."""
+        )
 
-        # Create a prompt for polishing the chapter
-        polish_prompt = f"""Please polish and expand this chapter of a children's story to make it more engaging and detailed.
-        Keep the same main events but add more descriptive language, dialogue, and emotional depth.
-        Make it suitable for children while being interesting and educational.
+        # Update story state with initial structure
+        active_stories[story_id].update({
+            "title": initial_story["title"],
+            "summary": initial_story["summary"],
+            "status": "generating_chapters"
+        })
 
-        Chapter {chapter_index + 1} of "{initial_story['title']}":
-        {chapter_content}
+        # Second pass: Polish each chapter
+        for chapter_index in range(story.chapter_count):
+            chapter_name = f"chapter_{chapter_index}"
+            chapter_content = initial_story[chapter_name]
+            
+            # Create a prompt for polishing the chapter
+            polish_prompt = f"""Please polish and expand this chapter of a children's story to make it more engaging and detailed.
+            Keep the same main events but add more descriptive language, dialogue, and emotional depth.
+            Make it suitable for children while being interesting and educational.
+            
+            Chapter {chapter_index + 1} of "{initial_story['title']}":
+            {chapter_content}
+            
+            Story summary for context:
+            {initial_story['summary']}
+            """
+            
+            # Get the polished version
+            polished_chapter = llm.invoke(polish_prompt)
+            active_stories[story_id]["chapters"][f"chapter {chapter_index}"] = polished_chapter.content
+            active_stories[story_id]["current_chapter"] = chapter_index + 1
 
-        Story summary for context:
-        {initial_story['summary']}
-        """
+        # Mark story as complete
+        active_stories[story_id]["status"] = "complete"
 
-        # Get the polished version
-        polished_chapter = llm.invoke(polish_prompt)
-        polished_chapters[f"chapter {chapter_index}"] = polished_chapter.content
+    except Exception as e:
+        active_stories[story_id]["status"] = "error"
+        active_stories[story_id]["error"] = str(e)
 
-    # Combine the polished chapters with the original title
-    final_story = {
-        "title": initial_story["title"],
-        **polished_chapters
-    }
+@app.websocket("/ws/story/{story_id}")
+async def websocket_endpoint(websocket: WebSocket, story_id: str):
+    """
+    WebSocket endpoint for story generation progress
+    """
+    await websocket.accept()
+    try:
+        while True:
+            if story_id not in active_stories:
+                await websocket.send_json({"status": "error", "message": "Story not found"})
+                break
 
-    return {"response": final_story}
+            story_state = active_stories[story_id]
+            await websocket.send_json(story_state)
+
+            if story_state["status"] in ["complete", "error"]:
+                break
+
+            await asyncio.sleep(1)  # Poll every second
+
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        await websocket.send_json({"status": "error", "message": str(e)})
 
 
 @app.get("/ollama/models")
