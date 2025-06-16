@@ -52,3 +52,20 @@ export async function textToStory(
   logger.debug(`Ai story: "${data}"`);
   return data;
 }
+
+export interface OllamaModel {
+  name: string;
+  value: string;
+  description: string;
+  type: 'local' | 'api';
+}
+
+export async function getAvailableModels(): Promise<OllamaModel[]> {
+  logger.info('Fetching available models from Ollama');
+  const rawResponse = await fetch(
+    `${process.env.API_SCHEME}://${process.env.API_URL}:${process.env.OLLAMA_PORT}/ollama/models`
+  );
+  const models = await rawResponse.json();
+  logger.debug(`Available models: ${JSON.stringify(models)}`);
+  return models;
+}

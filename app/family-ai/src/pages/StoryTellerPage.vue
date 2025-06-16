@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { jsPDF } from 'jspdf';
 import { textToImage } from '../components/api/comfy';
-import { textToStory } from '../components/api/llm';
+import { textToStory, getAvailableModels, type OllamaModel } from '../components/api/llm';
 import voiceInput from '../components/VoiceInput.vue';
 import pino from 'pino';
 
@@ -22,37 +22,13 @@ const userInput = ref(
 );
 
 const model = ref({
-  label: 'Mistral',
-  value: 'mistral',
-  description: 'European Mistral model.',
+  label: '',
+  value: '',
+  description: '',
   type: 'local',
 });
-const models = ref([
-  {
-    label: 'Mistral',
-    value: 'mistral',
-    description: 'European Mistral model.',
-    type: 'local',
-  },
-  {
-    label: 'Mistral API',
-    value: 'mistral-large-latest',
-    description: 'European Mistral model, non free.',
-    type: 'api',
-  },
-  {
-    label: 'Llama 3.1',
-    value: 'llama3.1',
-    description: '"Open source" llama 3.1 model created by meta.',
-    type: 'local',
-  },
-  {
-    label: 'Gemma 3',
-    value: 'gemma3:12b',
-    description: '"Open source" Gemma3 model.',
-    type: 'local',
-  },
-]);
+const models = ref<{ label: string; value: string; description: string; type: string }[]>([]);
+const loading = ref(true);
 const modelIllustration = ref({
   label: 'EpicRealism XL',
   value: 'epicrealismXL_v5Ultimate.safetensors',
@@ -240,6 +216,25 @@ async function saveStoryPdf() {
   });
   doc.save('personal_ai_story.pdf');
 }
+
+onMounted(async () => {
+  try {
+    const availableModels = await getAvailableModels();
+    models.value = availableModels.map((m: OllamaModel) => ({
+      label: m.name,
+      value: m.value,
+      description: m.description,
+      type: m.type
+    }));
+    if (models.value.length > 0) {
+      model.value = models.value[0];
+    }
+  } catch (error) {
+    logger.error('Failed to fetch models:', error);
+  } finally {
+    loading.value = false;
+  }
+});
 </script>
 
 <template>
@@ -267,6 +262,8 @@ async function saveStoryPdf() {
           v-model="model"
           :options="models"
           label="Story creation model:"
+          :loading="loading"
+          :disable="loading"
         >
           <template v-slot:append>
             <q-avatar icon="style" text-color="white" />

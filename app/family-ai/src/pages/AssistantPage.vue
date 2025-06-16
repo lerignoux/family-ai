@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { inject, ref } from 'vue';
-import { textToText } from '../components/api/llm';
+import { inject, ref, onMounted } from 'vue';
+import { textToText, getAvailableModels, type OllamaModel } from '../components/api/llm';
 import voiceInput from '../components/VoiceInput.vue';
 import pino from 'pino';
 
@@ -10,13 +10,9 @@ const logger = pino({
 
 const bus = inject<any>('bus');
 const userInput = ref('Who are you');
-const model = ref('Gemma');
-const models = ref([
-  { label: 'Gemma', value: 'gemma3:12b' },
-  { label: 'Phi', value: 'phi' },
-  { label: 'Lamma2 (Uncensonred)', value: 'llama2-uncensored:7b' },
-  { label: 'Deep Seek', value: 'deepseek-llm:7b-chat-q8_0' },
-]);
+const model = ref('');
+const models = ref<{ label: string; value: string; description: string; type: string }[]>([]);
+const loading = ref(true);
 const chat = ref([
   {
     name: 'Ai',
@@ -27,6 +23,25 @@ const chat = ref([
   },
 ]);
 const querying = ref(false);
+
+onMounted(async () => {
+  try {
+    const availableModels = await getAvailableModels();
+    models.value = availableModels.map((m: OllamaModel) => ({
+      label: m.name,
+      value: m.value,
+      description: m.description,
+      type: m.type
+    }));
+    if (models.value.length > 0) {
+      model.value = models.value[0].value;
+    }
+  } catch (error) {
+    logger.error('Failed to fetch models:', error);
+  } finally {
+    loading.value = false;
+  }
+});
 
 async function recordCallback(text: string) {
   userInput.value = text;
@@ -81,6 +96,8 @@ async function handleUserQuery(query: string) {
           emit-value
           :options="models"
           label="Model:"
+          :loading="loading"
+          :disable="loading"
         >
           <template v-slot:append>
             <q-avatar icon="mdi-data-matrix" text-color="white" />
