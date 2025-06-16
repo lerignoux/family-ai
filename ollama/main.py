@@ -50,8 +50,13 @@ def read_secret(name):
 
 
 BASE_URL = "http://ollama:11434"
+<<<<<<< HEAD
 current_model="llama3.1"
 llm_handler = ChatOllama(model=current_model, base_url=BASE_URL, temperature=0)
+=======
+current_model="llama3.2"
+llm_handler = ChatOllama(model=current_model, base_url=BASE_URL, temperature=0, timeout=300)
+>>>>>>> 4f79c88 (Fixup)
 
 custom_llm_handlers = {
     'mistral-large-latest': ChatMistralAI(api_key=read_secret("mistral_api_key"), model="mistral-large-latest")
@@ -61,7 +66,7 @@ def get_default_llm_handler(model):
     global current_model
     global llm_handler
     if model != current_model:
-        llm_handler = ChatOllama(model="llama3.1", base_url=BASE_URL, temperature=0)
+        llm_handler = ChatOllama(model="llama3.1", base_url=BASE_URL, temperature=0, timeout=300)
     return llm_handler
 
 
@@ -88,13 +93,16 @@ def chat(chat: Chat):
 @app.post("/ollama/story")
 def story(story: Story):
     """
-    Request generating a kid story.
+    Request generating a kid story using a two-pass approach:
+    1. First pass: Generate the overall story structure and basic content
+    2. Second pass: Polish each chapter to make it more engaging and detailed
     """
     global current_model
     global llm
 
     llm = custom_llm_handlers.get(story.model, get_default_llm_handler(story.model))
 
+    # First pass: Generate story structure
     story_schema = {
         "title": "story",
         "description": f"A kid story about {story.subject}",
@@ -104,23 +112,60 @@ def story(story: Story):
                 "type": "string",
                 "description": "The title of the story.",
             },
+            "summary": {
+                "type": "string",
+                "description": "A brief summary of the story's plot and main events.",
+            }
         },
-        "required": ["title"],
+        "required": ["title", "summary"],
     }
 
-
+    # Add chapter properties to schema
     for chapter_index in range(story.chapter_count):
-        chapter_name = f"chapter {chapter_index}"
-        chapter_description = f"The {chapter_index} chapter"
-        story_schema['required'] += [chapter_name]
-        story_schema[chapter_name] = {
+        chapter_name = f"chapter_{chapter_index}"
+        story_schema["properties"][chapter_name] = {
             "type": "string",
-            "description": chapter_description
+            "description": f"The content of chapter {chapter_index + 1}"
         }
+        story_schema["required"].append(chapter_name)
 
     structured_llm = llm.with_structured_output(schema=story_schema)
-    response = structured_llm.invoke(f"Please write a kid story in {story.chapter_count} short chapters of a few sentences each about {story.subject}")
-    return {"response": response}
+    initial_story = structured_llm.invoke(
+        f"""Please write a kid story in {story.chapter_count} chapters about {story.subject}.
+        First, create a title and a brief summary of the story.
+        Then, write each chapter with a few sentences that outline the main events.
+        Make sure the story has a clear beginning, middle, and end."""
+    )
+
+    # Second pass: Polish each chapter
+    polished_chapters = {}
+    for chapter_index in range(story.chapter_count):
+        chapter_name = f"chapter_{chapter_index}"
+        chapter_content = initial_story[chapter_name]
+
+        # Create a prompt for polishing the chapter
+        polish_prompt = f"""Please polish and expand this chapter of a children's story to make it more engaging and detailed.
+        Keep the same main events but add more descriptive language, dialogue, and emotional depth.
+        Make it suitable for children while being interesting and educational.
+
+        Chapter {chapter_index + 1} of "{initial_story['title']}":
+        {chapter_content}
+
+        Story summary for context:
+        {initial_story['summary']}
+        """
+
+        # Get the polished version
+        polished_chapter = llm.invoke(polish_prompt)
+        polished_chapters[f"chapter {chapter_index}"] = polished_chapter.content
+
+    # Combine the polished chapters with the original title
+    final_story = {
+        "title": initial_story["title"],
+        **polished_chapters
+    }
+
+    return {"response": final_story}
 
 
 @app.get("/ollama/models")

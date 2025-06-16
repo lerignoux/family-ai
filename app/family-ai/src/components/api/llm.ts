@@ -66,7 +66,7 @@ export async function getAvailableModels(): Promise<OllamaModel[]> {
     `${process.env.API_SCHEME}://${process.env.API_URL}:${process.env.OLLAMA_PORT}/ollama/models`
   );
   const models = await rawResponse.json();
-  
+
   // Count occurrences of each model name
   const nameCounts = new Map<string, number>();
   models.forEach((model: OllamaModel) => {
