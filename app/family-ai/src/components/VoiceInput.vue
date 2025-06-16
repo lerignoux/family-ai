@@ -2,8 +2,8 @@
   <q-page-sticky
     position="bottom-right"
     :offset="[18, 18]"
-    @touchstart="recordAudio"
-    @touchend="stopAudio"
+    @touchstart.prevent="handleTouchStart"
+    @touchend.prevent="handleTouchEnd"
     @mousedown="recordAudio"
     @mouseup="stopAudio"
   >
@@ -28,37 +28,73 @@ const emit = defineEmits<{
 var audioRecorder: MediaRecorder;
 const recording = ref(false);
 const recordIcon = ref('perm_camera_mic');
+const isMobile = ref(false);
 
-function requestAudioDevice() {
-  var audioDevice = navigator.mediaDevices.getUserMedia({ audio: true });
-  audioDevice.then((stream) => {
+// Check if device is mobile
+if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+  isMobile.value = true;
+}
+
+async function requestAudioDevice() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     audioRecorder = new MediaRecorder(stream);
     audioRecorder.ondataavailable = handleUserStream;
     recordIcon.value = 'mic';
-  });
+    return true;
+  } catch (error) {
+    console.error('Error accessing microphone:', error);
+    recordIcon.value = 'mic_off';
+    return false;
+  }
 }
 
-function recordAudio() {
+async function recordAudio() {
   if (!audioRecorder) {
-    requestAudioDevice();
-    return;
+    const success = await requestAudioDevice();
+    if (!success) return;
   }
-  console.log('recording.');
-  recording.value = true;
-  audioRecorder.start();
+  
+  try {
+    console.log('recording.');
+    recording.value = true;
+    audioRecorder.start();
+  } catch (error) {
+    console.error('Error starting recording:', error);
+    recording.value = false;
+  }
 }
 
 function stopAudio() {
-  if (audioRecorder !== undefined) {
+  if (audioRecorder && audioRecorder.state === 'recording') {
     console.log('end recording.');
     audioRecorder.stop();
   }
 }
 
+async function handleTouchStart(event: TouchEvent) {
+  event.preventDefault();
+  if (isMobile.value) {
+    await recordAudio();
+  }
+}
+
+function handleTouchEnd(event: TouchEvent) {
+  event.preventDefault();
+  if (isMobile.value) {
+    stopAudio();
+  }
+}
+
 async function handleUserStream(event: BlobEvent) {
   console.log('Audio data available.');
-  const text = await speechToText(event.data);
-  emit('record-available', text);
-  recording.value = false;
+  try {
+    const text = await speechToText(event.data);
+    emit('record-available', text);
+  } catch (error) {
+    console.error('Error processing audio:', error);
+  } finally {
+    recording.value = false;
+  }
 }
 </script>
