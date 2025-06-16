@@ -66,6 +66,24 @@ export async function getAvailableModels(): Promise<OllamaModel[]> {
     `${process.env.API_SCHEME}://${process.env.API_URL}:${process.env.OLLAMA_PORT}/ollama/models`
   );
   const models = await rawResponse.json();
-  logger.debug(`Available models: ${JSON.stringify(models)}`);
-  return models;
+  
+  // Count occurrences of each model name
+  const nameCounts = new Map<string, number>();
+  models.forEach((model: OllamaModel) => {
+    nameCounts.set(model.name, (nameCounts.get(model.name) || 0) + 1);
+  });
+
+  // Add model ID in brackets for duplicate names
+  const processedModels = models.map((model: OllamaModel) => {
+    if ((nameCounts.get(model.name) ?? 0) > 1) {
+      return {
+        ...model,
+        name: `${model.name} (${model.value})`
+      };
+    }
+    return model;
+  });
+
+  logger.debug(`Available models: ${JSON.stringify(processedModels)}`);
+  return processedModels;
 }

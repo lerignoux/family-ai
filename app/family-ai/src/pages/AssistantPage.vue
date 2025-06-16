@@ -11,7 +11,7 @@ const logger = pino({
 const bus = inject<any>('bus');
 const userInput = ref('Who are you');
 const model = ref('');
-const models = ref<{ label: string; value: string; description: string; type: string }[]>([]);
+const models = ref<OllamaModel[]>([]);
 const loading = ref(true);
 const chat = ref([
   {
@@ -26,18 +26,14 @@ const querying = ref(false);
 
 onMounted(async () => {
   try {
+    loading.value = true;
     const availableModels = await getAvailableModels();
-    models.value = availableModels.map((m: OllamaModel) => ({
-      label: m.name,
-      value: m.value,
-      description: m.description,
-      type: m.type
-    }));
-    if (models.value.length > 0) {
-      model.value = models.value[0].value;
+    models.value = availableModels;
+    if (availableModels.length > 0) {
+      model.value = availableModels[0].value;
     }
   } catch (error) {
-    logger.error('Failed to fetch models:', error);
+    console.error('Error loading models:', error);
   } finally {
     loading.value = false;
   }
@@ -93,11 +89,15 @@ async function handleUserQuery(query: string) {
           dark
           text-color="white"
           v-model="model"
-          emit-value
           :options="models"
-          label="Model:"
+          :option-label="(model) => model.name"
+          :option-value="(model) => model.value"
+          label="Model"
           :loading="loading"
           :disable="loading"
+          class="q-mb-md"
+          emit-value
+          map-options
         >
           <template v-slot:append>
             <q-avatar icon="mdi-data-matrix" text-color="white" />

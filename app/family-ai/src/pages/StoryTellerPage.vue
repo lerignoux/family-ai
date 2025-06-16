@@ -21,13 +21,8 @@ const userInput = ref(
   'a little kid day in the wood playing with his animals friends.'
 );
 
-const model = ref({
-  label: '',
-  value: '',
-  description: '',
-  type: 'local',
-});
-const models = ref<{ label: string; value: string; description: string; type: string }[]>([]);
+const model = ref('');
+const models = ref<OllamaModel[]>([]);
 const loading = ref(true);
 const modelIllustration = ref({
   label: 'EpicRealism XL',
@@ -90,7 +85,7 @@ async function handleUserQuery(query: string) {
   formattedStory.value = [];
   storyIndex.value = 0;
 
-  const story = await textToStory(query, model.value.value, storyLength.value);
+  const story = await textToStory(query, model.value, storyLength.value);
   if (story == undefined) {
     logger.warn('Empty story returned.');
     querying.value = false;
@@ -195,7 +190,7 @@ async function saveStoryPdf() {
   doc.text('assistant.', 98, 100, titleOptions);
   doc.setFontSize(16);
   doc.text(
-    `* Text generated using ${model.value.label}`,
+    `* Text generated using ${model.value}`,
     26,
     110,
     titleOptions
@@ -219,18 +214,14 @@ async function saveStoryPdf() {
 
 onMounted(async () => {
   try {
+    loading.value = true;
     const availableModels = await getAvailableModels();
-    models.value = availableModels.map((m: OllamaModel) => ({
-      label: m.name,
-      value: m.value,
-      description: m.description,
-      type: m.type
-    }));
-    if (models.value.length > 0) {
-      model.value = models.value[0];
+    models.value = availableModels;
+    if (availableModels.length > 0) {
+      model.value = availableModels[0].value;
     }
   } catch (error) {
-    logger.error('Failed to fetch models:', error);
+    console.error('Error loading models:', error);
   } finally {
     loading.value = false;
   }
@@ -258,17 +249,17 @@ onMounted(async () => {
 
       <div class="col-grow-xs col-md">
         <q-select
-          standout="bg-grey-9 text-white"
           v-model="model"
           :options="models"
-          label="Story creation model:"
+          :option-label="(model) => model.name"
+          :option-value="(model) => model.value"
+          label="Model"
           :loading="loading"
           :disable="loading"
-        >
-          <template v-slot:append>
-            <q-avatar icon="style" text-color="white" />
-          </template>
-        </q-select>
+          class="q-mb-md"
+          emit-value
+          map-options
+        />
       </div>
 
       <div class="col-grow-s col-md">

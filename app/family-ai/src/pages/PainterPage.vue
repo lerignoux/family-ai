@@ -10,13 +10,8 @@ const logger = pino({
 });
 
 const userInput = ref('');
-const model = ref({
-  label: '',
-  value: '',
-  description: '',
-  type: 'local',
-});
-const models = ref<{ label: string; value: string; description: string; type: string }[]>([]);
+const model = ref('');
+const models = ref<OllamaModel[]>([]);
 const loading = ref(true);
 const imageUrl = ref('');
 const querying = ref(false);
@@ -24,18 +19,14 @@ const recording = ref(false);
 
 onMounted(async () => {
   try {
+    loading.value = true;
     const availableModels = await getAvailableModels();
-    models.value = availableModels.map((m: OllamaModel) => ({
-      label: m.name,
-      value: m.value,
-      description: m.description,
-      type: m.type
-    }));
-    if (models.value.length > 0) {
-      model.value = models.value[0];
+    models.value = availableModels;
+    if (availableModels.length > 0) {
+      model.value = availableModels[0].value;
     }
   } catch (error) {
-    logger.error('Failed to fetch models:', error);
+    console.error('Error loading models:', error);
   } finally {
     loading.value = false;
   }
@@ -48,7 +39,7 @@ async function recordCallback(text: string) {
 
 function handleUserInput() {
   querying.value = true;
-  handleUserQuery(userInput.value, model.value.value);
+  handleUserQuery(userInput.value, model.value);
 }
 
 async function handleUserQuery(query: string, model: string) {
@@ -65,18 +56,16 @@ async function handleUserQuery(query: string, model: string) {
       <div class="col-grow-xs col-md">
         <q-select
           v-model="model"
-          standout="bg-grey-9 text-white"
-          dark
-          text-color="white"
           :options="models"
-          label="Model:"
+          :option-label="(model) => model.name"
+          :option-value="(model) => model.value"
+          label="Model"
           :loading="loading"
           :disable="loading"
-        >
-          <template v-slot:append>
-            <q-avatar icon="mdi-data-matrix" text-color="white" />
-          </template>
-        </q-select>
+          class="q-mb-md"
+          emit-value
+          map-options
+        />
       </div>
     </div>
 
