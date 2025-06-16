@@ -50,13 +50,9 @@ def read_secret(name):
 
 
 BASE_URL = "http://ollama:11434"
-<<<<<<< HEAD
-current_model="llama3.1"
-llm_handler = ChatOllama(model=current_model, base_url=BASE_URL, temperature=0)
-=======
+
 current_model="llama3.2"
 llm_handler = ChatOllama(model=current_model, base_url=BASE_URL, temperature=0, timeout=300)
->>>>>>> 4f79c88 (Fixup)
 
 custom_llm_handlers = {
     'mistral-large-latest': ChatMistralAI(api_key=read_secret("mistral_api_key"), model="mistral-large-latest")
@@ -66,7 +62,7 @@ def get_default_llm_handler(model):
     global current_model
     global llm_handler
     if model != current_model:
-        llm_handler = ChatOllama(model="llama3.1", base_url=BASE_URL, temperature=0, timeout=300)
+        llm_handler = ChatOllama(model="llama3.2", base_url=BASE_URL, temperature=0, timeout=300)
     return llm_handler
 
 
