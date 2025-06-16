@@ -1,4 +1,5 @@
 import pino from 'pino';
+import WebSocket from 'ws';
 
 const logger = pino({
   level: 'info',
@@ -26,31 +27,99 @@ export async function textToText(prompt: string, model: string) {
   return data;
 }
 
+export interface StoryResult {
+  title: string;
+  [key: string]: string;
+}
+
+export interface StoryProgress {
+  status: string;
+  current_chapter?: number;
+  chapter_count?: number;
+  title?: string;
+  summary?: string;
+  chapters?: Record<string, string>;
+}
+
 export async function textToStory(
   prompt: string,
   model: string,
-  chapter_count: number
-) {
+  chapter_count: number,
+  onProgress?: (progress: StoryProgress) => void
+): Promise<StoryResult> {
   logger.info(`Request story generation for "${prompt}".`);
-  const requestOptions = {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: model,
-      subject: prompt,
-      format: 'json',
-      stream: false,
-      chapter_count: chapter_count,
-    }),
-  };
-  const rawResponse = await fetch(
+
+  // Start the story generation
+  const response = await fetch(
     `${process.env.API_SCHEME}://${process.env.API_URL}:${process.env.OLLAMA_PORT}/ollama/story`,
-    requestOptions
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: model,
+        subject: prompt,
+        format: 'json',
+        stream: false,
+        chapter_count: chapter_count,
+      })
+    }
   );
-  const jsonResponse = await rawResponse.json();
-  const data = jsonResponse.response;
-  logger.debug(`Ai story: "${data}"`);
-  return data;
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  const { story_id } = await response.json();
+
+  // Connect to WebSocket for progress updates
+  const ws = new WebSocket(
+    `${process.env.API_SCHEME === 'https' ? 'wss' : 'ws'}://${process.env.API_URL}:${process.env.OLLAMA_PORT}/ws/story/${story_id}`
+  );
+
+  return new Promise<StoryResult>((resolve, reject) => {
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data.toString());
+
+        if (onProgress) {
+          onProgress({
+            status: data.status,
+            current_chapter: data.current_chapter,
+            chapter_count: data.chapter_count,
+            title: data.title,
+            summary: data.summary,
+            chapters: data.chapters
+          });
+        }
+
+        if (data.status === 'complete') {
+          ws.close();
+          resolve({
+            title: data.title,
+            ...data.chapters
+          });
+        } else if (data.status === 'error') {
+          ws.close();
+          reject(new Error(data.error || 'Story generation failed'));
+        }
+      } catch (error) {
+        ws.close();
+        reject(error);
+      }
+    };
+
+    ws.onerror = (error) => {
+      ws.close();
+      reject(error);
+    };
+
+    ws.onclose = () => {
+      // Handle unexpected closure
+      if (!ws.CLOSED) {
+        reject(new Error('WebSocket connection closed unexpectedly'));
+      }
+    };
+  });
 }
 
 export interface OllamaModel {
