@@ -10,7 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from langchain_ollama import ChatOllama
 from langchain_mistralai import ChatMistralAI
-from pydantic import from typing import Optional, Dict
+from pydantic import BaseModel
+from typing import Dict
 
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
@@ -161,6 +162,7 @@ async def generate_story(story_id: str, story: Story):
 
         # Second pass: Polish each chapter
         for chapter_index in range(story.chapter_count):
+            log.info(f"Polishing chapter {chapter_index} of {story.chapter_count}")
             chapter_name = f"chapter_{chapter_index}"
             chapter_content = initial_story[chapter_name]
             
