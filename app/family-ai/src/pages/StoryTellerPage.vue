@@ -2,12 +2,19 @@
 import { ref, onMounted } from 'vue';
 import { jsPDF } from 'jspdf';
 import { textToImage } from '../components/api/comfy';
-import { textToStory, getAvailableModels, type OllamaModel } from '../components/api/llm';
+import { textToStory, getAvailableModels, type OllamaModel, type StoryResult, type StoryProgress } from '../components/api/llm';
 import voiceInput from '../components/VoiceInput.vue';
 import pino from 'pino';
+import { useQuasar } from 'quasar';
 
 const logger = pino({
-  level: 'info',
+  browser: {
+    write: {
+      info: (...args) => console.log(...args),
+      warn: (...args) => console.warn(...args),
+      error: (...args) => console.error(...args),
+    },
+  },
 });
 
 interface StoryPage {
@@ -61,11 +68,107 @@ const style = ref({
     ', colorful and oniric painting style, beautiful, dream.',
   illustrationTemplateSuffix: undefined,
 });
-const rawStory = ref('');
+const rawStory = ref<StoryResult | null>(null);
 const storyIndex = ref(0);
 const formattedStory = ref<StoryBook>([]);
 
 const querying = ref(false);
+
+const storyText = ref<string>('');
+const storyResult = ref<StoryResult | null>(null);
+const illustrations = ref<Record<string, string>>({});
+const error = ref<string | null>(null);
+const $q = useQuasar();
+
+const formatStoryText = (result: StoryResult): string => {
+  const chapters = Object.entries(result)
+    .filter(([key]) => key !== 'title')
+    .map(([chapter, content]) => `${chapter}\n${content}`)
+    .join('\n\n');
+  return `${result.title}\n\n${chapters}`;
+};
+
+const generateIllustration = async (chapter: string, content: string) => {
+  try {
+    const prompt = `Create an illustration for the following chapter:\n\n${content}`;
+    const result = await textToImage(prompt, model.value);
+    if (result instanceof Blob) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          illustrations.value[chapter] = reader.result;
+        }
+      };
+      reader.readAsDataURL(result);
+    } else {
+      illustrations.value[chapter] = result;
+    }
+  } catch (err) {
+    console.error(`Failed to generate illustration for ${chapter}:`, err);
+    $q.notify({
+      type: 'warning',
+      message: `Failed to generate illustration for ${chapter}`,
+      timeout: 6000
+    });
+  }
+};
+
+const generateStory = async () => {
+  if (!userInput.value || !model.value) {
+    $q.notify({
+      type: 'negative',
+      message: 'Please enter a prompt and select a model',
+      timeout: 6000
+    });
+    return;
+  }
+
+  loading.value = true;
+  storyText.value = '';
+  storyResult.value = null;
+  illustrations.value = {};
+  error.value = null;
+
+  try {
+    const result = await textToStory(
+      userInput.value,
+      model.value,
+      storyLength.value,
+      (progress: StoryProgress) => {
+        // Update progress
+        if (progress.status === 'generating') {
+          storyText.value = `Generating chapter ${progress.current_chapter} of ${progress.chapter_count}...`;
+        } else if (progress.status === 'polishing') {
+          storyText.value = `Polishing chapter ${progress.current_chapter} of ${progress.chapter_count}...`;
+        } else if (progress.status === 'complete' && progress.chapters && progress.title) {
+          const tempResult: StoryResult = {
+            title: progress.title,
+            ...progress.chapters
+          };
+          storyText.value = formatStoryText(tempResult);
+          storyResult.value = tempResult;
+          
+          // Start generating illustrations for each chapter
+          Object.entries(progress.chapters).forEach(([chapter, content]) => {
+            generateIllustration(chapter, content);
+          });
+        }
+      }
+    );
+
+    storyText.value = formatStoryText(result);
+    storyResult.value = result;
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'An error occurred';
+    $q.notify({
+      type: 'negative',
+      message: error.value,
+      timeout: 6000
+    });
+  } finally {
+    loading.value = false;
+  }
+};
 
 async function recordCallback(text: string) {
   userInput.value = text;
@@ -120,10 +223,12 @@ async function handleUserQuery(query: string) {
     logger.debug('Cutting the raw story in pages;');
 
     let index = 0;
-    for (const pageContent of story.split('.')) {
-      await formatRawPageContent(pageContent, index);
-      index += 1;
-    }
+    Object.keys(story).forEach(async (key) => {
+      if (key != 'title') {
+        await formatRawPageContent(story[key], index);
+        index += 1;
+      }
+    });
   }
   querying.value = false;
 }
@@ -214,14 +319,18 @@ async function saveStoryPdf() {
 
 onMounted(async () => {
   try {
-    loading.value = true;
     const availableModels = await getAvailableModels();
     models.value = availableModels;
     if (availableModels.length > 0) {
       model.value = availableModels[0].value;
     }
   } catch (error) {
-    console.error('Error loading models:', error);
+    logger.error('Failed to fetch available models:', error);
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to fetch available models',
+      timeout: 6000
+    });
   } finally {
     loading.value = false;
   }
@@ -234,7 +343,7 @@ onMounted(async () => {
       <div class="col-grow-xs col-md">
         <q-select
           standout="bg-grey-9 text-white"
-          dark
+         dark
           text-color="white"
           v-model="style"
           emit-value
@@ -246,9 +355,11 @@ onMounted(async () => {
           </template>
         </q-select>
       </div>
-
-      <div class="col-grow-xs col-md">
+      <div class="col-12 col-md-6">
         <q-select
+          standout="bg-grey-9 text-white"
+          dark
+          text-color="white"
           v-model="model"
           :options="models"
           :option-label="(model) => model.name"
@@ -259,114 +370,57 @@ onMounted(async () => {
           class="q-mb-md"
           emit-value
           map-options
-        />
+        >
+          <template v-slot:append>
+            <q-avatar icon="mdi-data-matrix" text-color="white" />
+          </template>
+        </q-select>
       </div>
-
       <div class="col-grow-s col-md">
         <q-input
           v-model.number="storyLength"
           type="number"
           standout="bg-grey-9 text-white"
-          label="story length"
+          label="Number of Chapters"
+          :min="1"
+          :max="10"
+          :loading="loading"
+          :disable="loading"
         />
       </div>
-    </div>
-
-    <div class="story-actions row items-center wrap">
-      <div class="story-input col-grow">
-        <q-input
-          class="story-input"
-          outlined
-          v-model="userInput"
-          label="Create a story about:"
-          v-on:keyup.enter="handleUserInput"
-        />
-      </div>
-
-      <div class="col-auto">
+      <div class="col-12">
         <q-btn
-          class="story-action"
-          @click="handleUserInput"
-          :loading="querying"
-          :disable="querying"
-          id="queryButton"
-          round
           color="primary"
-          icon="message"
-          size="l"
+          label="Generate Story"
+          @click="generateStory"
+          :loading="loading"
+          :disable="loading"
         />
       </div>
-    </div>
-
-    <div class="story-content row items-center">
-      <div class="col">
-        <q-responsive :ratio="2">
-          <q-carousel
-            v-model="storyIndex"
-            transition-prev="slide-right"
-            transition-next="slide-left"
-            animated
-            navigation
-            control-color="primary"
-            swipeable
-            padding
-            class="shadow-2"
-          >
-            <q-carousel-slide
-              v-for="(storyPage, index) in formattedStory"
-              :key="index"
-              :name="index"
-              class="column wrap"
-              draggable="false"
-            >
-              <q-img
-                style="width: 45%; min-width: 150px"
-                class="rounded-borders full-height"
-                src="src/assets/page-background.png"
-              >
-                <div
-                  class="absolute-full text-subtitle2 flex flex-center;"
-                  style="overflow-y: scroll"
-                >
-                  <div
-                    class="story-text"
-                    style="min-height: 150px; min-width: 150px"
-                  >
-                    {{ storyPage.text }}
-                  </div>
-                </div>
-              </q-img>
-              <q-img
-                style="width: 45%; min-width: 150px"
-                class="rounded-borders full-height"
-                :src="storyPage.illustration"
-              >
-              </q-img>
-            </q-carousel-slide>
-            <template v-slot:navigation-icon="{ onClick, index }">
-              <q-btn @click="onClick">
-                <q-avatar size="56px" square>
-                  <img :src="formattedStory[index].illustration" />
-                </q-avatar>
-              </q-btn>
-            </template>
-          </q-carousel>
-        </q-responsive>
-        <div class="pdf-download">
-          <q-btn
-            class="download-pdf"
-            color="primary"
-            icon="mdi-file-download"
-            @click="saveStoryPdf"
-            :disable="querying || formattedStory.length == 0"
-            padding="none"
-          />
-          <q-tooltip> Download story PDF </q-tooltip>
-        </div>
+      <div class="col-12">
+        <q-card v-if="storyText" class="q-mt-md">
+          <q-card-section>
+            <div class="text-h6">Generated Story</div>
+            <div class="text-body1" style="white-space: pre-wrap;">{{ storyText }}</div>
+          </q-card-section>
+        </q-card>
+        <q-card v-if="Object.keys(illustrations).length > 0" class="q-mt-md">
+          <q-card-section>
+            <div class="text-h6">Illustrations</div>
+            <div class="row q-col-gutter-md">
+              <div v-for="(illustration, chapter) in illustrations" :key="chapter" class="col-12 col-md-6">
+                <q-img
+                  :src="illustration"
+                  :ratio="16/9"
+                  :alt="`Illustration for ${chapter}`"
+                />
+                <div class="text-caption q-mt-sm">{{ chapter }}</div>
+              </div>
+            </div>
+          </q-card-section>
+        </q-card>
       </div>
     </div>
-
-    <voiceInput @record-available="recordCallback" />
   </div>
 </template>
 
