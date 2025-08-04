@@ -39,7 +39,7 @@ async function handleUserQuery(query: string) {
   const translated = await translateText(
     query,
     language_src.value.value,
-    language_src.value.value
+    language_dst.value.value
   );
   aiTranslation.value = translated;
   querying.value = false;
