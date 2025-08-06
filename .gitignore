@@ -21,12 +21,15 @@ tts/kokoro/__pycache__
 argos-translate/local/*/**
 argos-translate/__pycache__
 
-comfy/output/*.png
+comfy/output/*
 comfy/custom_nodes
 comfy/storage
 comfy/models/**/*.safetensors
 comfy/models/**/*.pth
 comfy/models/**/*.pt
+comfy/user/*
+
+output/*
 
 certificates
 .env
