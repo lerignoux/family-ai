@@ -14,7 +14,7 @@ from TTS.api import TTS
 import whisper
 
 # kokoro
-from kokoro.main import tts_to_file as kokoro_tts_to_file
+from kokoro_tts import text_to_audio
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 log = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ class TTSRequest(BaseModel):
     sentence: str
     model: str = "kokoro-82M"  # "tts_models/en/ljspeech/fast_pitch"
     vocoder: str = "vocoder_models/en/ljspeech/hifigan_v2"
-    language: str = "en"
+    language: str = "en-en"
 
 
 
@@ -94,14 +94,17 @@ def readPost(query: TTSRequest):
     """
     output_wav = f"/tts/output/output_{ObjectId()}.wav"
     sentence = clean_input(query.sentence)
+    language = 'en'
+    if hasattr(query, 'language'):
+        language = query.language
     log.debug(f"Requested to voice: `{sentence}`")
 
-    if hasattr(query, 'language') and query.language != 'en':
-        raise HTTPException(status_code=400, detail="Only english is supported yet.")
-
     if query.model == "kokoro-82M":
-        kokoro_tts_to_file(text=sentence, file_path=output_wav)
+        text_to_audio(text=sentence, file_path=output_wav, language=language)
     else:
+        if query.language != 'en':
+            raise HTTPException(status_code=400, detail="Only english is supported yet.")
+
         ApiTTS.tts_to_file(text=sentence, file_path=output_wav)
 
     output_mp3 = convert_to_mp3(output_wav)
@@ -110,23 +113,11 @@ def readPost(query: TTSRequest):
 
 
 @app.get("/tts")
-def readGet(
-    sentence: str,
-    language: str="en",
-    model: str="tts_models/en/ljspeech/fast_pitch",
-    vocoder="vocoder_models/en/ljspeech/hifigan_v2"
-):
+def readGet(query: TTSRequest):
     """
     Process the given input into audio convert in mp3 and returns it as a file.
     """
-    output_wav = f"/tts/output/output_{ObjectId()}.wav"
-    sentence = clean_input(sentence)
-    log.debug(f"Requested to voice: `{sentence}`")
-
-    ApiTTS.tts_to_file(text=sentence, file_path=output_wav)
-    output_mp3 = convert_to_mp3(output_wav)
-
-    return FileResponse(output_mp3, media_type="audio/mpeg")
+    return readPost(query)
 
 
 @app.get("/models")

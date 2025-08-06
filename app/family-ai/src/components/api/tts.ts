@@ -12,11 +12,7 @@ export async function textToSpeech(text: string, language: string) {
   }
   const params: any = { sentence: text };
   if (language !== null) {
-    if (language != 'en') {
-      logger.error('Only english tts is supported');
-    } else {
-      params.language = language;
-    }
+    params.language = language;
   }
   const requestOptions = {
     method: 'POST',

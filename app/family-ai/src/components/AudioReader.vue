@@ -28,17 +28,14 @@ function playAudio(audioBlob: Blob) {
 }
 
 async function readText(text: string, language = 'en') {
-  if (language != 'en') {
-    language = `${language}-${language}`;
-  }
   const audio = await textToSpeech(text, language);
   playAudio(audio);
 }
 
-bus.on('read-text', (text: string) => {
-  console.log('event fetched' + text);
+bus.on('read-text', (text: string, language: string = 'en') => {
+  console.log(`read-text event fetched: ${text} in ${language}`);
   if (autoRead.value) {
-    readText(text);
+    readText(text, language);
   }
 });
 </script>

@@ -43,7 +43,7 @@ async function handleUserQuery(query: string) {
   );
   aiTranslation.value = translated;
   querying.value = false;
-  bus.emit('read-text', translated);
+  bus.emit('read-text', translated, language_dst.value.value);
 }
 </script>
 
