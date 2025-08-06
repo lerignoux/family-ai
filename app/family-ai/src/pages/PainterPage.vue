@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { textToImage } from '../components/api/comfy';
 import { getAvailableModels, type OllamaModel } from '../components/api/llm';
 import voiceInput from '../components/VoiceInput.vue';
+import { saveUserSelection, getPageSelection } from '../utils/localStorage';
 import pino from 'pino';
 
 const logger = pino({
@@ -22,13 +23,28 @@ onMounted(async () => {
     loading.value = true;
     const availableModels = await getAvailableModels();
     models.value = availableModels;
-    if (availableModels.length > 0) {
+
+    // Load saved model selection
+    const savedSelections = getPageSelection('painter');
+    if (
+      savedSelections.model &&
+      availableModels.some((m) => m.value === savedSelections.model)
+    ) {
+      model.value = savedSelections.model;
+    } else if (availableModels.length > 0) {
       model.value = availableModels[0].value;
     }
   } catch (error) {
     console.error('Error loading models:', error);
   } finally {
     loading.value = false;
+  }
+});
+
+// Watch for model changes and save to localStorage
+watch(model, (newModel) => {
+  if (newModel) {
+    saveUserSelection('painter', 'model', newModel);
   }
 });
 

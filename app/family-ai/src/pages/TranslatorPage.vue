@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { inject, ref } from 'vue';
+import { inject, ref, onMounted, watch } from 'vue';
 import { translateText } from '../components/api/translate';
 import voiceInput from '../components/VoiceInput.vue';
+import { saveUserSelection, getPageSelection } from '../utils/localStorage';
 import pino from 'pino';
 
 const logger = pino({
@@ -21,6 +22,30 @@ const languages = ref([
   { label: 'Japanese', value: 'jp' },
 ]);
 const querying = ref(false);
+
+onMounted(() => {
+  // Load saved language selections
+  const savedSelections = getPageSelection('translator');
+  if (savedSelections.language_src) {
+    language_src.value = savedSelections.language_src;
+  }
+  if (savedSelections.language_dst) {
+    language_dst.value = savedSelections.language_dst;
+  }
+});
+
+// Watch for language changes and save to localStorage
+watch(language_src, (newLanguage) => {
+  if (newLanguage) {
+    saveUserSelection('translator', 'language_src', newLanguage);
+  }
+});
+
+watch(language_dst, (newLanguage) => {
+  if (newLanguage) {
+    saveUserSelection('translator', 'language_dst', newLanguage);
+  }
+});
 
 async function recordCallback(text: string) {
   userInput.value = text;
