@@ -6,25 +6,25 @@ import torch
 
 log = logging.getLogger(__name__)
 
-lang_dict = {
-    'en' :'a',
-    'es': 'e',
-    'fr' :'f',
-    'zh' :'z',
+languages = {
+    'en': { 'code': 'a', 'voice': 'af_sarah' },
+    'es': { 'code': 'e', 'voice': ''},
+    'fr': { 'code':'f', 'voice': 'ff_siwis'},
+    'zh': {'code': 'z', 'voice': 'zf_xiaoyi'},
 }
 
-def language_code(language):
+def language_config(language):
     try:
-        return lang_dict[language]
+        return languages[language]
     except KeyError as e:
         raise Exception(f"Language {language} not supported by kokoro.")
 
 
 def text_to_audio(text, file_path, language='en'):
-    lang_code = language_code(language)
-    pipeline = KPipeline(lang_code=lang_code)
+    voice_config = language_config(language)
+    pipeline = KPipeline(lang_code=voice_config['code'])
 
-    generator = pipeline(text, voice='af_heart')
+    generator = pipeline(text, voice=voice_config['voice'])
     for i, (gs, ps, audio) in enumerate(generator):
         print(i, gs, ps)
         display(Audio(data=audio, rate=24000, autoplay=i==0))
