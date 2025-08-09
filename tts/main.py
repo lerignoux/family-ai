@@ -50,7 +50,7 @@ class TTSRequest(BaseModel):
     sentence: str
     model: str = "kokoro-82M"  # "tts_models/en/ljspeech/fast_pitch"
     vocoder: str = "vocoder_models/en/ljspeech/hifigan_v2"
-    language: str = "en-en"
+    language: str = "en"
 
 
 
