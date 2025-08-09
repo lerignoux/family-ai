@@ -46,12 +46,20 @@ DEFAULT_MODEL = "tts_models/en/ljspeech/fast_pitch"
 ApiTTS = TTS(model_name=DEFAULT_MODEL, progress_bar=False).to('cuda')
 
 
+stt_language = {
+    'en': "English",
+    'es': "Espanol",
+    'fr': "French",
+    'zh': "Chinese",
+    'jp': "Janaese"
+}
+
+
 class TTSRequest(BaseModel):
     sentence: str
     model: str = "kokoro-82M"  # "tts_models/en/ljspeech/fast_pitch"
     vocoder: str = "vocoder_models/en/ljspeech/hifigan_v2"
     language: str = "en"
-
 
 
 def convert_to_mp3(filename, delete=True):
@@ -73,14 +81,31 @@ def clean_input(sentence):
 
 
 @app.post("/stt")
-async def create_upload_file(file: UploadFile):
+async def create_upload_file(file: UploadFile, language: str = ""):
     temp_file = f"/tts/input/input_{ObjectId()}_{file.filename}"
 
     async with aiofiles.open(temp_file, 'wb') as out_file:
         content = await file.read()
         await out_file.write(content)
 
-    result = STT_MODEL.transcribe(temp_file)
+    language_code = stt_language.get(language) if language else None
+    result = STT_MODEL.transcribe(temp_file, language=language_code)
+
+    if not debug:
+        os.remove(temp_file)
+    return {"result": result["text"]}
+
+
+@app.post("/transcribe")
+async def transcribe_file(file: UploadFile, language: str = ""):
+    temp_file = f"/tts/input/input_{ObjectId()}_{file.filename}"
+
+    async with aiofiles.open(temp_file, 'wb') as out_file:
+        content = await file.read()
+        await out_file.write(content)
+
+    language_code = stt_language.get(language) if language else None
+    result = STT_MODEL.transcribe(temp_file, language=language_code, task='translate')
 
     if not debug:
         os.remove(temp_file)

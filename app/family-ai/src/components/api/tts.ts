@@ -28,9 +28,12 @@ export async function textToSpeech(text: string, language: string) {
   return blobResponse;
 }
 
-export async function speechToText(blob: Blob) {
+export async function speechToText(blob: Blob, language = null) {
   logger.debug('Requested text from audio input.');
   const formData = new FormData();
+  if (language) {
+    formData.append('language', language);
+  }
   formData.append('file', blob, 'audio.ogg');
   formData.append('type', 'ogg');
 

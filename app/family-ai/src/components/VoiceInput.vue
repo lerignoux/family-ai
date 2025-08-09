@@ -54,7 +54,7 @@ async function recordAudio() {
     const success = await requestAudioDevice();
     if (!success) return;
   }
-  
+
   try {
     console.log('recording.');
     recording.value = true;
