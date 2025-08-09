@@ -37,8 +37,41 @@ if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
 
 async function requestAudioDevice() {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    audioRecorder = new MediaRecorder(stream);
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        sampleRate: 48000,
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    });
+
+    // Configure MediaRecorder with Opus codec for optimal compression
+    const options: MediaRecorderOptions = {};
+
+    // Try different Opus MIME types in order of preference
+    const opusTypes = [
+      'audio/ogg; codecs=opus',
+      'audio/webm; codecs=opus',
+      'audio/ogg',
+      'audio/webm'
+    ];
+
+    for (const mimeType of opusTypes) {
+      if (MediaRecorder.isTypeSupported(mimeType)) {
+        options.mimeType = mimeType;
+        console.log(`Using MIME type: ${mimeType}`);
+        break;
+      }
+    }
+
+    // Set bitrate for compression (32kbps for voice is usually sufficient)
+    if (options.mimeType) {
+      options.audioBitsPerSecond = 32000;
+    }
+
+    audioRecorder = new MediaRecorder(stream, options);
     audioRecorder.ondataavailable = handleUserStream;
     recordIcon.value = 'mic';
     return true;
@@ -88,6 +121,7 @@ function handleTouchEnd(event: TouchEvent) {
 
 async function handleUserStream(event: BlobEvent) {
   console.log('Audio data available.');
+
   try {
     const text = await speechToText(event.data);
     emit('record-available', text);

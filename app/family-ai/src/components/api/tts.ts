@@ -29,13 +29,27 @@ export async function textToSpeech(text: string, language: string) {
 }
 
 export async function speechToText(blob: Blob, language = null) {
-  logger.debug('Requested text from audio input.');
+  logger.debug(`Requested text from audio input.`);
+
   const formData = new FormData();
   if (language) {
     formData.append('language', language);
   }
-  formData.append('file', blob, 'audio.ogg');
-  formData.append('type', 'ogg');
+
+  // Determine file extension and type based on blob MIME type
+  let filename = 'audio.ogg';
+  let audioType = 'ogg';
+
+  if (blob.type.includes('webm')) {
+    filename = 'audio.webm';
+    audioType = 'webm';
+  } else if (blob.type.includes('ogg')) {
+    filename = 'audio.ogg';
+    audioType = 'ogg';
+  }
+
+  formData.append('file', blob, filename);
+  formData.append('type', audioType);
 
   const requestOptions = {
     method: 'POST',
