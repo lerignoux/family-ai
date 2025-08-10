@@ -32,7 +32,7 @@ async function readText(text: string, language = 'en') {
   playAudio(audio);
 }
 
-bus.on('read-text', (text: string, language: string = 'en') => {
+bus.on('read-text', (text: string, language = 'en') => {
   console.log(`read-text event fetched: ${text} in ${language}`);
   if (autoRead.value) {
     readText(text, language);

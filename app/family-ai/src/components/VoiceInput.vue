@@ -18,8 +18,37 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * VoiceInput Component
+ *
+ * A voice recording component that supports both default speech-to-text processing
+ * and custom audio handling via props.
+ *
+ * Usage:
+ * - Default: <VoiceInput @record-available="handleText" />
+ * - Custom: <VoiceInput :custom-handler="handleAudioBlob" />
+ *
+ * @emits record-available - Emitted when text is available (default mode only)
+ * @prop customHandler - Optional custom function to handle audio blobs
+ */
 import { ref } from 'vue';
 import { speechToText } from './api/tts';
+
+/**
+ * Props for VoiceInput component
+ */
+interface Props {
+  /**
+   * Custom handler function for processing audio blobs.
+   * If provided, this will be called instead of the default speech-to-text processing.
+   * The function receives the audio blob and should return a Promise.
+   */
+  customHandler?: (blob: Blob) => Promise<void>;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  customHandler: undefined,
+});
 
 const emit = defineEmits<{
   'record-available': [text: string];
@@ -43,8 +72,8 @@ async function requestAudioDevice() {
         channelCount: 1,
         echoCancellation: true,
         noiseSuppression: true,
-        autoGainControl: true
-      }
+        autoGainControl: true,
+      },
     });
 
     // Configure MediaRecorder with Opus codec for optimal compression
@@ -55,7 +84,7 @@ async function requestAudioDevice() {
       'audio/ogg; codecs=opus',
       'audio/webm; codecs=opus',
       'audio/ogg',
-      'audio/webm'
+      'audio/webm',
     ];
 
     for (const mimeType of opusTypes) {
@@ -123,8 +152,12 @@ async function handleUserStream(event: BlobEvent) {
   console.log('Audio data available.');
 
   try {
-    const text = await speechToText(event.data);
-    emit('record-available', text);
+    if (props.customHandler) {
+      await props.customHandler(event.data);
+    } else {
+      const text = await speechToText(event.data);
+      emit('record-available', text);
+    }
   } catch (error) {
     console.error('Error processing audio:', error);
   } finally {

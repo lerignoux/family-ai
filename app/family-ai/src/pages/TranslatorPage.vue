@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { inject, ref, onMounted, watch } from 'vue';
-import { translateText } from '../components/api/translate';
-import voiceInput from '../components/VoiceInput.vue';
+import { translateText, translateAudio } from '../components/api/translate';
+import { speechToText } from '../components/api/tts';
+import VoiceInput from '../components/VoiceInput.vue';
 import { saveUserSelection, getPageSelection } from '../utils/localStorage';
 import pino from 'pino';
 
@@ -22,6 +23,7 @@ const languages = ref([
   { label: 'Japanese', value: 'jp' },
 ]);
 const querying = ref(false);
+const audioTranslating = ref(false);
 
 onMounted(() => {
   // Load saved language selections
@@ -50,6 +52,54 @@ watch(language_dst, (newLanguage) => {
 async function recordCallback(text: string) {
   userInput.value = text;
   handleUserInput();
+}
+
+async function handleAudioTranslation(blob: Blob) {
+  try {
+    audioTranslating.value = true;
+    logger.debug('Processing audio for translation...');
+
+    // Call translateAudio directly with the audio blob
+    const translatedAudioBlob = await translateAudio(
+      blob,
+      language_src.value.value,
+      language_dst.value.value
+    );
+
+    // Play the translated audio
+    const audioUrl = URL.createObjectURL(translatedAudioBlob);
+    const audio = new Audio(audioUrl);
+
+    audio.onended = () => {
+      URL.revokeObjectURL(audioUrl); // Clean up the URL
+    };
+
+    await audio.play();
+    logger.debug('Playing translated audio');
+
+    // Show success notification
+    bus.emit('show-notification', {
+      type: 'positive',
+      message: `Audio translated from ${language_src.value.label} to ${language_dst.value.label}`,
+      timeout: 3000,
+    });
+  } catch (error) {
+    logger.error('Error processing audio translation:', error);
+
+    // Show error notification
+    bus.emit('show-notification', {
+      type: 'negative',
+      message: 'Audio translation failed. Falling back to text translation.',
+      timeout: 5000,
+    });
+
+    // Fallback to speech-to-text if audio translation fails
+    const text = await speechToText(blob);
+    userInput.value = text;
+    handleUserInput();
+  } finally {
+    audioTranslating.value = false;
+  }
 }
 
 async function handleUserInput() {
@@ -140,7 +190,7 @@ async function handleUserQuery(query: string) {
       </div>
     </div>
 
-    <voiceInput @record-available="recordCallback" />
+    <VoiceInput :custom-handler="handleAudioTranslation" />
   </div>
 </template>
 
