@@ -62,6 +62,113 @@ def translate(sentence: str, from_code='en', to_code='fr'):
     return {"result": translatedText}
 
 
+@app.websocket("/translate_text_stream")
+async def translate_text_stream(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time text translation streaming with progress updates.
+    Skips the speech-to-text step and starts directly with translation.
+    """
+    await websocket.accept()
+
+    try:
+        # Extract query parameters from the WebSocket URL
+        query_params = websocket.query_params
+        from_code = query_params.get('from_code', 'en')
+        to_code = query_params.get('to_code', 'fr')
+
+        log.info(f"WebSocket connection established for text translation {from_code}->{to_code}")
+
+        # Send initial progress
+        await websocket.send_text(json.dumps({
+            "type": "translation",
+            "message": "Starting translation...",
+            "progress": 0
+        }))
+
+        # Wait for text input from client
+        text_input = await websocket.receive_text()
+        log.info(f"Received text input: {text_input}")
+
+        if not text_input:
+            await websocket.send_text(json.dumps({
+                "type": "error",
+                "message": "No text received"
+            }))
+            return
+
+        # Step 1: Translation
+        try:
+            translated_text = argostranslate.translate.translate(text_input, from_code, to_code)
+            log.info(f"Translated text: {translated_text}")
+
+            # Send progress update
+            await websocket.send_text(json.dumps({
+                "type": "translation",
+                "translatedText": translated_text,
+                "message": f"Translated: {translated_text}",
+                "progress": 50
+            }))
+
+        except Exception as e:
+            log.error(f"Translation error: {e}")
+            await websocket.send_text(json.dumps({
+                "type": "error",
+                "message": f"Translation failed: {str(e)}"
+            }))
+            return
+
+        # Step 2: Text to Speech
+        try:
+            post_data = {
+                'sentence': translated_text,
+                'model': 'kokoro-82M',
+                'language': to_code
+            }
+            response = requests.post("http://192.168.2.10:8186/tts", json=post_data)
+
+            if response.status_code != 200:
+                raise Exception(f"TTS failed with status {response.status_code}")
+
+            # Convert audio to base64 for WebSocket transmission
+            audio_base64 = base64.b64encode(response.content).decode('utf-8')
+
+            # Send completion with base64 audio
+            await websocket.send_text(json.dumps({
+                "type": "complete",
+                "message": "Translation completed successfully",
+                "progress": 100,
+                "data": audio_base64
+            }))
+
+            log.info("WebSocket text translation completed successfully")
+
+        except Exception as e:
+            log.error(f"Text-to-speech error: {e}")
+            await websocket.send_text(json.dumps({
+                "type": "error",
+                "message": f"Text-to-speech failed: {str(e)}"
+            }))
+            return
+
+    except WebSocketDisconnect:
+        log.info("WebSocket client disconnected")
+    except Exception as e:
+        log.error(f"WebSocket text translation error: {str(e)}")
+        try:
+            await websocket.send_text(json.dumps({
+                "type": "error",
+                "message": f"Translation failed: {str(e)}",
+                "progress": 0
+            }))
+        except:
+            pass
+    finally:
+        try:
+            await websocket.close()
+        except:
+            pass
+
+
 @app.post("/translate_audio")
 async def translate_audio(file: UploadFile, from_code='en', to_code='fr'):
     temp_file = f"/argos-translate/input/input_{ObjectId()}_{file.filename}"
@@ -150,7 +257,7 @@ async def translate_audio_stream(websocket: WebSocket):
         await websocket.send_text(json.dumps({
             "type": "translation",
             "translatedText": translated_text,
-            "message": f"Translated: {translated_text}",
+            "message": f"Translating from {from_code} to {to_code}...",
             "progress": 66
         }))
 

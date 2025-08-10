@@ -164,3 +164,68 @@ export async function translateAudioStream(
 
   return ws;
 }
+
+export async function translateTextStream(
+  text: string,
+  language_src: string,
+  language_dst: string,
+  options: TranslationStreamOptions = {}
+): Promise<WebSocket> {
+  // Create WebSocket connection
+  const params = new URLSearchParams({
+    from_code: language_src,
+    to_code: language_dst,
+  }).toString();
+
+  const scheme = process.env.API_SCHEME === 'https' ? 'wss' : 'ws';
+  const wsUrl = `${scheme}://${process.env.API_URL}:${process.env.TRANSLATE_PORT}/translate_text_stream?${params}`;
+  const ws = new WebSocket(wsUrl);
+
+  ws.onopen = () => {
+    logger.debug('WebSocket connection opened for text translation streaming');
+    ws.send(text);
+  };
+
+  ws.onmessage = (event) => {
+    try {
+      const progress: TranslationProgress = JSON.parse(event.data);
+      logger.debug('Text translation progress:', progress);
+
+      if (options.onProgress) {
+        options.onProgress(progress);
+      }
+
+      if (progress.type === 'complete' && progress.data && options.onComplete) {
+        // Convert base64 data back to blob
+        const binaryString = atob(progress.data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const resultBlob = new Blob([bytes], { type: 'audio/ogg' });
+        options.onComplete(resultBlob);
+      }
+    } catch (error) {
+      logger.error('Error parsing WebSocket message:', error);
+      if (options.onError) {
+        options.onError('Failed to parse server response');
+      }
+    }
+  };
+
+  ws.onerror = (error) => {
+    logger.error('WebSocket error:', error);
+    if (options.onError) {
+      options.onError('WebSocket connection error');
+    }
+  };
+
+  ws.onclose = (event) => {
+    logger.debug('WebSocket connection closed:', event.code, event.reason);
+    if (event.code !== 1000 && options.onError) {
+      options.onError(`Connection closed: ${event.reason || 'Unknown reason'}`);
+    }
+  };
+
+  return ws;
+}

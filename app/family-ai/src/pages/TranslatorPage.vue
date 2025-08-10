@@ -3,6 +3,7 @@ import { inject, ref, onMounted, watch } from 'vue';
 import {
   translateText,
   translateAudioStream,
+  translateTextStream,
   type TranslationProgress,
 } from '../components/api/translate';
 
@@ -179,16 +180,76 @@ async function handleUserInput() {
 
 async function handleUserQuery(query: string) {
   logger.debug(
-    `Requesting translation ${language_src.value.value}-> ${language_src.value.value}.`
+    `Requesting translation ${language_src.value.value}-> ${language_dst.value.value}.`
   );
-  const translated = await translateText(
-    query,
-    language_src.value.value,
-    language_dst.value.value
-  );
-  aiTranslation.value = translated;
-  querying.value = false;
-  bus.emit('read-text', translated, language_dst.value.value);
+
+  try {
+    querying.value = true;
+
+    await translateTextStream(
+      query,
+      language_src.value.value,
+      language_dst.value.value,
+      {
+        onProgress: (progress: TranslationProgress) => {
+          if (progress.translatedText) {
+            aiTranslation.value = progress.translatedText;
+          }
+        },
+        onComplete: async (resultBlob: Blob) => {
+          try {
+            const audioUrl = URL.createObjectURL(resultBlob);
+            const audio = new Audio(audioUrl);
+
+            audio.onended = () => {
+              URL.revokeObjectURL(audioUrl); // Clean up the URL
+            };
+
+            await audio.play();
+            logger.debug('Playing translated audio');
+
+            bus.emit(
+              'read-text',
+              aiTranslation.value,
+              language_dst.value.value
+            );
+
+            bus.emit('show-notification', {
+              type: 'positive',
+              message: `Text translated from ${language_src.value.label} to ${language_dst.value.value}`,
+              timeout: 3000,
+            });
+          } catch (error) {
+            logger.error('Error playing translated audio:', error);
+            bus.emit('show-notification', {
+              type: 'negative',
+              message: 'Error playing translated audio',
+              timeout: 5000,
+            });
+          } finally {
+            querying.value = false;
+          }
+        },
+        onError: (error: string) => {
+          logger.error('WebSocket text translation error:', error);
+          bus.emit('show-notification', {
+            type: 'negative',
+            message: `Text translation failed: ${error}`,
+            timeout: 5000,
+          });
+          querying.value = false;
+        },
+      }
+    );
+  } catch (error) {
+    logger.error('Error setting up text translation:', error);
+    bus.emit('show-notification', {
+      type: 'negative',
+      message: 'Text translation failed.',
+      timeout: 5000,
+    });
+    querying.value = false;
+  }
 }
 </script>
 
