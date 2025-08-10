@@ -4,6 +4,26 @@ const logger = pino({
   level: 'info',
 });
 
+export interface TranslationProgress {
+  type:
+    | 'speech_to_text'
+    | 'translation'
+    | 'text_to_speech'
+    | 'complete'
+    | 'error';
+  message: string;
+  progress?: number;
+  data?: any;
+  transcribedText?: string;
+  translatedText?: string;
+}
+
+export interface TranslationStreamOptions {
+  onProgress?: (progress: TranslationProgress) => void;
+  onComplete?: (result: Blob) => void;
+  onError?: (error: string) => void;
+}
+
 export async function translateText(
   prompt: string,
   language_src: string,
@@ -61,11 +81,86 @@ export async function translateAudio(
     method: 'POST',
     body: formData,
   };
-  
+
   const url = `${process.env.API_SCHEME}://${process.env.API_URL}:${process.env.TRANSLATE_PORT}/translate_audio?${params}`;
-  
+
   const rawResponse = await fetch(url, requestOptions);
   const blobResponse = await rawResponse.blob();
   logger.debug('Translated Audio returned.');
   return blobResponse;
+}
+
+export async function translateAudioStream(
+  blob: Blob,
+  language_src: string,
+  language_dst: string,
+  options: TranslationStreamOptions = {}
+): Promise<WebSocket> {
+  // Determine file extension and type based on blob MIME type
+  let audioType = 'ogg';
+
+  if (blob.type.includes('webm')) {
+    audioType = 'webm';
+  } else if (blob.type.includes('ogg')) {
+    audioType = 'ogg';
+  }
+
+  // Create WebSocket connection
+  const params = new URLSearchParams({
+    from_code: language_src,
+    to_code: language_dst,
+    type: audioType,
+  }).toString();
+
+  const scheme = process.env.API_SCHEME === 'https' ? 'wss' : 'ws';
+  const wsUrl = `${scheme}://${process.env.API_URL}:${process.env.TRANSLATE_PORT}/translate_audio_stream?${params}`;
+  const ws = new WebSocket(wsUrl);
+
+  ws.onopen = () => {
+    logger.debug('WebSocket connection opened for translation streaming');
+    ws.send(blob);
+  };
+
+  ws.onmessage = (event) => {
+    try {
+      const progress: TranslationProgress = JSON.parse(event.data);
+      logger.debug('Translation progress:', progress);
+
+      if (options.onProgress) {
+        options.onProgress(progress);
+      }
+
+      if (progress.type === 'complete' && progress.data && options.onComplete) {
+        // Convert base64 data back to blob
+        const binaryString = atob(progress.data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const resultBlob = new Blob([bytes], { type: 'audio/ogg' });
+        options.onComplete(resultBlob);
+      }
+    } catch (error) {
+      logger.error('Error parsing WebSocket message:', error);
+      if (options.onError) {
+        options.onError('Failed to parse server response');
+      }
+    }
+  };
+
+  ws.onerror = (error) => {
+    logger.error('WebSocket error:', error);
+    if (options.onError) {
+      options.onError('WebSocket connection error');
+    }
+  };
+
+  ws.onclose = (event) => {
+    logger.debug('WebSocket connection closed:', event.code, event.reason);
+    if (event.code !== 1000 && options.onError) {
+      options.onError(`Connection closed: ${event.reason || 'Unknown reason'}`);
+    }
+  };
+
+  return ws;
 }

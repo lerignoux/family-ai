@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { inject, ref, onMounted, watch } from 'vue';
-import { translateText, translateAudio } from '../components/api/translate';
-import { speechToText } from '../components/api/tts';
+import {
+  translateText,
+  translateAudioStream,
+  type TranslationProgress,
+} from '../components/api/translate';
+
 import VoiceInput from '../components/VoiceInput.vue';
 import { saveUserSelection, getPageSelection } from '../utils/localStorage';
 import pino from 'pino';
@@ -24,6 +28,9 @@ const languages = ref([
 ]);
 const querying = ref(false);
 const audioTranslating = ref(false);
+const translationProgress = ref<TranslationProgress | null>(null);
+const translationPhase = ref<string>('');
+const progressPercentage = ref(0);
 
 onMounted(() => {
   // Load saved language selections
@@ -49,56 +56,119 @@ watch(language_dst, (newLanguage) => {
   }
 });
 
-async function recordCallback(text: string) {
-  userInput.value = text;
-  handleUserInput();
-}
-
 async function handleAudioTranslation(blob: Blob) {
   try {
     audioTranslating.value = true;
+    translationProgress.value = null;
+    translationPhase.value = '';
+    progressPercentage.value = 0;
+
     logger.debug('Processing audio for translation...');
 
-    // Call translateAudio directly with the audio blob
-    const translatedAudioBlob = await translateAudio(
+    // Use WebSocket streaming for real-time progress
+    await translateAudioStream(
       blob,
       language_src.value.value,
-      language_dst.value.value
+      language_dst.value.value,
+      {
+        onProgress: (progress: TranslationProgress) => {
+          translationProgress.value = progress;
+
+          switch (progress.type) {
+            case 'speech_to_text':
+              translationPhase.value = 'Converting speech to text...';
+              progressPercentage.value = progress.progress || 25;
+              // Update user input with transcribed text
+              if (progress.transcribedText) {
+                userInput.value = progress.transcribedText;
+              }
+              break;
+            case 'translation':
+              translationPhase.value = 'Translating text...';
+              progressPercentage.value = progress.progress || 50;
+              // Update translated content with translated text
+              if (progress.translatedText) {
+                aiTranslation.value = progress.translatedText;
+              }
+              break;
+            case 'text_to_speech':
+              translationPhase.value = 'Converting to speech...';
+              progressPercentage.value = progress.progress || 75;
+              break;
+            case 'complete':
+              translationPhase.value = 'Translation complete!';
+              progressPercentage.value = 100;
+              break;
+            case 'error':
+              translationPhase.value = 'Error occurred';
+              progressPercentage.value = 0;
+              break;
+          }
+        },
+        onComplete: async (resultBlob: Blob) => {
+          try {
+            const audioUrl = URL.createObjectURL(resultBlob);
+            const audio = new Audio(audioUrl);
+
+            audio.onended = () => {
+              URL.revokeObjectURL(audioUrl); // Clean up the URL
+            };
+
+            await audio.play();
+            logger.debug('Playing translated audio');
+
+            // Reset the translation state
+            audioTranslating.value = false;
+            translationProgress.value = null;
+            translationPhase.value = '';
+            progressPercentage.value = 0;
+
+            bus.emit('show-notification', {
+              type: 'positive',
+              message: `Audio translated from ${language_src.value.label} to ${language_dst.value.label}`,
+              timeout: 3000,
+            });
+          } catch (error) {
+            logger.error('Error playing translated audio:', error);
+            bus.emit('show-notification', {
+              type: 'negative',
+              message: 'Error playing translated audio',
+              timeout: 5000,
+            });
+          }
+        },
+        onError: (error: string) => {
+          logger.error('WebSocket translation error:', error);
+          bus.emit('show-notification', {
+            type: 'negative',
+            message: `Translation failed: ${error}`,
+            timeout: 5000,
+          });
+
+          // Reset state on error
+          audioTranslating.value = false;
+          translationProgress.value = null;
+          translationPhase.value = '';
+          progressPercentage.value = 0;
+        },
+      }
     );
-
-    // Play the translated audio
-    const audioUrl = URL.createObjectURL(translatedAudioBlob);
-    const audio = new Audio(audioUrl);
-
-    audio.onended = () => {
-      URL.revokeObjectURL(audioUrl); // Clean up the URL
-    };
-
-    await audio.play();
-    logger.debug('Playing translated audio');
-
-    // Show success notification
-    bus.emit('show-notification', {
-      type: 'positive',
-      message: `Audio translated from ${language_src.value.label} to ${language_dst.value.label}`,
-      timeout: 3000,
-    });
   } catch (error) {
-    logger.error('Error processing audio translation:', error);
+    logger.error('Error setting up audio translation:', error);
 
-    // Show error notification
     bus.emit('show-notification', {
       type: 'negative',
-      message: 'Audio translation failed. Falling back to text translation.',
+      message: 'Audio translation failed.',
       timeout: 5000,
     });
 
-    // Fallback to speech-to-text if audio translation fails
-    const text = await speechToText(blob);
-    userInput.value = text;
-    handleUserInput();
-  } finally {
+    // Reset state on error
     audioTranslating.value = false;
+    translationProgress.value = null;
+    translationPhase.value = '';
+    progressPercentage.value = 0;
+  } finally {
+    // Don't set audioTranslating to false here - let the WebSocket handle completion
   }
 }
 

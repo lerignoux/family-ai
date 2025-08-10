@@ -29,7 +29,7 @@ export async function textToSpeech(text: string, language: string) {
 }
 
 export async function speechToText(blob: Blob, language = null) {
-  logger.debug(`Requested text from audio input.`);
+  logger.debug('Requested text from audio input.');
 
   const formData = new FormData();
   if (language) {
