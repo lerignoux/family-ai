@@ -488,6 +488,7 @@ watch(
         </q-card>
       </div>
     </div>
+    <voiceInput @record-available="recordCallback" />
   </div>
 </template>
 
