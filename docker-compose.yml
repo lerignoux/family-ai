@@ -73,16 +73,18 @@ services:
               capabilities: [gpu]
     env_file:
       - .env
+    depends_on:
+      - tts
     environment:
       - ARGOS_LANGUAGES=en,fr,zh,es
+      - ARGOS_PACKAGES_DIR=/root/.local/share/argos-translate/packages/
     networks:
       - family-ai
     ports:
       - 8187:80
     volumes:
       - ./argos-translate:/argos-translate
-      - ./argos-translate/local:/home/libretranslate/.local
-      - ./argos-translate/db:/app/db
+      - ./argos-translate/local:/root/.local
     restart: always
 
   comfy:
@@ -108,7 +110,6 @@ services:
       - ./comfy/output:/ComfyUI/output
       - ./comfy/custom_nodes:/ComfyUI/custom_nodes
       - ./comfy/user:/ComfyUI/user
-
 
   app:
     container_name: app
