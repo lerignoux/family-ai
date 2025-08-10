@@ -19,6 +19,8 @@ tts/__pycache__
 tts/kokoro/__pycache__
 
 argos-translate/local/*/**
+argos-translate/input/*
+argos-translate/output/*
 argos-translate/__pycache__
 
 comfy/output/*
