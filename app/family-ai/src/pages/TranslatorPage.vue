@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { inject, ref, onMounted, watch } from 'vue';
 import {
-  translateText,
   translateAudioStream,
   translateTextStream,
   type TranslationProgress,
