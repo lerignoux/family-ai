@@ -91,7 +91,7 @@ const formatStoryText = (result: StoryResult): string => {
 const generateIllustration = async (chapter: string, content: string) => {
   try {
     const prompt = `Create an illustration for the following chapter:\n\n${content}`;
-    const result = await textToImage(prompt, model.value);
+    const result = await textToImage(prompt, modelIllustration.value.value);
     if (result instanceof Blob) {
       const reader = new FileReader();
       reader.onload = () => {
@@ -439,44 +439,55 @@ watch(
           :disable="loading"
         />
       </div>
-      <div class="col-12">
-        <q-btn
-          color="primary"
-          label="Generate Story"
-          @click="generateStory"
-          :loading="loading"
-          :disable="loading"
+    </div>
+    <div class="story-actions row items-center wrap">
+      <div class="story-input col-grow">
+        <q-input
+          class="story-input"
+          outlined
+          v-model="userInput"
+          label="Create a story about:"
+          v-on:keyup.enter="handleUserInput"
         />
       </div>
-      <div class="col-12">
-        <q-card v-if="storyText" class="q-mt-md">
-          <q-card-section>
-            <div class="text-h6">Generated Story</div>
-            <div class="text-body1" style="white-space: pre-wrap">
-              {{ storyText }}
+    </div>
+    <div class="col-12">
+      <q-btn
+        color="primary"
+        label="Generate Story"
+        @click="generateStory"
+        :loading="loading"
+        :disable="loading"
+      />
+    </div>
+    <div class="col-12">
+      <q-card v-if="storyText" class="q-mt-md">
+        <q-card-section>
+          <div class="text-h6">Generated Story</div>
+          <div class="text-body1" style="white-space: pre-wrap">
+            {{ storyText }}
+          </div>
+        </q-card-section>
+      </q-card>
+      <q-card v-if="Object.keys(illustrations).length > 0" class="q-mt-md">
+        <q-card-section>
+          <div class="text-h6">Illustrations</div>
+          <div class="row q-col-gutter-md">
+            <div
+              v-for="(illustration, chapter) in illustrations"
+              :key="chapter"
+              class="col-12 col-md-6"
+            >
+              <q-img
+                :src="illustration"
+                :ratio="16 / 9"
+                :alt="`Illustration for ${chapter}`"
+              />
+              <div class="text-caption q-mt-sm">{{ chapter }}</div>
             </div>
-          </q-card-section>
-        </q-card>
-        <q-card v-if="Object.keys(illustrations).length > 0" class="q-mt-md">
-          <q-card-section>
-            <div class="text-h6">Illustrations</div>
-            <div class="row q-col-gutter-md">
-              <div
-                v-for="(illustration, chapter) in illustrations"
-                :key="chapter"
-                class="col-12 col-md-6"
-              >
-                <q-img
-                  :src="illustration"
-                  :ratio="16 / 9"
-                  :alt="`Illustration for ${chapter}`"
-                />
-                <div class="text-caption q-mt-sm">{{ chapter }}</div>
-              </div>
-            </div>
-          </q-card-section>
-        </q-card>
-      </div>
+          </div>
+        </q-card-section>
+      </q-card>
     </div>
     <voiceInput @record-available="recordCallback" />
   </div>

@@ -1,5 +1,4 @@
 import pino from 'pino';
-import WebSocket from 'ws';
 
 const logger = pino({
   level: 'info',
@@ -61,7 +60,7 @@ export async function textToStory(
         format: 'json',
         stream: false,
         chapter_count: chapter_count,
-      })
+      }),
     }
   );
 
@@ -73,7 +72,9 @@ export async function textToStory(
 
   // Connect to WebSocket for progress updates
   const ws = new WebSocket(
-    `${process.env.API_SCHEME === 'https' ? 'wss' : 'ws'}://${process.env.API_URL}:${process.env.OLLAMA_PORT}/ws/story/${story_id}`
+    `${process.env.API_SCHEME === 'https' ? 'wss' : 'ws'}://${
+      process.env.API_URL
+    }:${process.env.OLLAMA_PORT}/ollama/ws/story/${story_id}`
   );
 
   return new Promise<StoryResult>((resolve, reject) => {
@@ -88,7 +89,7 @@ export async function textToStory(
             chapter_count: data.chapter_count,
             title: data.title,
             summary: data.summary,
-            chapters: data.chapters
+            chapters: data.chapters,
           });
         }
 
@@ -96,7 +97,7 @@ export async function textToStory(
           ws.close();
           resolve({
             title: data.title,
-            ...data.chapters
+            ...data.chapters,
           });
         } else if (data.status === 'error') {
           ws.close();
@@ -147,7 +148,7 @@ export async function getAvailableModels(): Promise<OllamaModel[]> {
     if ((nameCounts.get(model.name) ?? 0) > 1) {
       return {
         ...model,
-        name: `${model.name} (${model.value})`
+        name: `${model.name} (${model.value})`,
       };
     }
     return model;
