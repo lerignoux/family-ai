@@ -4,11 +4,7 @@ import { textToImage } from '../components/api/comfy';
 import { getAvailableModels, type OllamaModel } from '../components/api/llm';
 import voiceInput from '../components/VoiceInput.vue';
 import { saveUserSelection, getPageSelection } from '../utils/localStorage';
-import pino from 'pino';
-
-const logger = pino({
-  level: 'info',
-});
+import { logger } from '../utils/logger';
 
 const userInput = ref('');
 const model = ref('');
@@ -35,7 +31,7 @@ onMounted(async () => {
       model.value = availableModels[0].value;
     }
   } catch (error) {
-    console.error('Error loading models:', error);
+    logger.error('Error loading models:', error);
   } finally {
     loading.value = false;
   }

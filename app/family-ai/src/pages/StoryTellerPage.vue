@@ -11,18 +11,8 @@ import {
 } from '../components/api/llm';
 import voiceInput from '../components/VoiceInput.vue';
 import { saveUserSelection, getPageSelection } from '../utils/localStorage';
-import pino from 'pino';
+import { logger } from '../utils/logger';
 import { useQuasar } from 'quasar';
-
-const logger = pino({
-  browser: {
-    write: {
-      info: (...args) => console.log(...args),
-      warn: (...args) => console.warn(...args),
-      error: (...args) => console.error(...args),
-    },
-  },
-});
 
 interface StoryPage {
   text: string;
@@ -114,7 +104,7 @@ const generateIllustration = async (chapter: string, content: string) => {
       illustrations.value[chapter] = result;
     }
   } catch (err) {
-    console.error(`Failed to generate illustration for ${chapter}:`, err);
+    logger.error(`Failed to generate illustration for ${chapter}:`, err);
     $q.notify({
       type: 'warning',
       message: `Failed to generate illustration for ${chapter}`,

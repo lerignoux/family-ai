@@ -7,11 +7,7 @@ import {
 } from '../components/api/llm';
 import voiceInput from '../components/VoiceInput.vue';
 import { saveUserSelection, getPageSelection } from '../utils/localStorage';
-import pino from 'pino';
-
-const logger = pino({
-  level: 'info',
-});
+import { logger } from '../utils/logger';
 
 const bus = inject<any>('bus');
 const userInput = ref('Who are you');
@@ -46,7 +42,7 @@ onMounted(async () => {
       model.value = availableModels[0].value;
     }
   } catch (error) {
-    console.error('Error loading models:', error);
+    logger.error('Error loading models:', error);
   } finally {
     loading.value = false;
   }
