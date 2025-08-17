@@ -1,6 +1,6 @@
 bson~=0.5.10
 fastapi~=0.115.7
-uvicorn~=0.30.0
+uvicorn[standard]~=0.30
 langchain-core~=0.3.33
 langchain-community~=0.3.16
 langchain-ollama~=0.2.2

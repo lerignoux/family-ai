@@ -104,10 +104,10 @@ async def start_story(story: Story):
         "title": None,
         "summary": None
     }
-    
+
     # Start the story generation process
     asyncio.create_task(generate_story(story_id, story))
-    
+
     return {"story_id": story_id}
 
 
@@ -117,7 +117,7 @@ async def generate_story(story_id: str, story: Story):
     """
     try:
         llm = custom_llm_handlers.get(story.model, get_default_llm_handler(story.model))
-        
+
         # First pass: Generate story structure
         story_schema = {
             "title": "story",
@@ -146,7 +146,7 @@ async def generate_story(story_id: str, story: Story):
             story_schema["required"].append(chapter_name)
 
         structured_llm = llm.with_structured_output(schema=story_schema)
-        initial_story = structured_llm.invoke(
+        initial_story = await structured_llm.ainvoke(
             f"""Please write a kid story in {story.chapter_count} chapters about {story.subject}.
             First, create a title and a brief summary of the story.
             Then, write each chapter with a few sentences that outline the main events.
@@ -165,21 +165,21 @@ async def generate_story(story_id: str, story: Story):
             log.info(f"Polishing chapter {chapter_index} of {story.chapter_count}")
             chapter_name = f"chapter_{chapter_index}"
             chapter_content = initial_story[chapter_name]
-            
+
             # Create a prompt for polishing the chapter
             polish_prompt = f"""Please polish and expand this chapter of a children's story to make it more engaging and detailed.
             Keep the same main events but add more descriptive language, dialogue, and emotional depth.
             Make it suitable for children while being interesting and educational.
-            
+
             Chapter {chapter_index + 1} of "{initial_story['title']}":
             {chapter_content}
-            
+
             Story summary for context:
             {initial_story['summary']}
             """
-            
+
             # Get the polished version
-            polished_chapter = llm.invoke(polish_prompt)
+            polished_chapter = await llm.ainvoke(polish_prompt)
             active_stories[story_id]["chapters"][f"chapter {chapter_index}"] = polished_chapter.content
             active_stories[story_id]["current_chapter"] = chapter_index + 1
 
@@ -190,12 +190,14 @@ async def generate_story(story_id: str, story: Story):
         active_stories[story_id]["status"] = "error"
         active_stories[story_id]["error"] = str(e)
 
-@app.websocket("/ws/story/{story_id}")
+@app.websocket("/ollama/ws/story/{story_id}")
 async def websocket_endpoint(websocket: WebSocket, story_id: str):
     """
     WebSocket endpoint for story generation progress
     """
     await websocket.accept()
+    last_chapter = None
+    last_status = None
     try:
         while True:
             if story_id not in active_stories:
@@ -203,7 +205,16 @@ async def websocket_endpoint(websocket: WebSocket, story_id: str):
                 break
 
             story_state = active_stories[story_id]
-            await websocket.send_json(story_state)
+
+            if last_status is None or last_status != story_state["status"]:
+                await websocket.send_json(story_state)
+                last_status = story_state["status"]
+                last_chapter = story_state.get("current_chapter")
+            elif story_state["status"] == "generating_chapters":
+                if last_chapter is None or last_chapter != story_state["current_chapter"]:
+                    log.info(f"Sending story state {story_state}")
+                    await websocket.send_json(story_state)
+                    last_chapter = story_state["current_chapter"]
 
             if story_state["status"] in ["complete", "error"]:
                 break
