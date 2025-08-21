@@ -27,7 +27,8 @@ const userInput = ref(
 
 const model = ref('');
 const models = ref<OllamaModel[]>([]);
-const loading = ref(true);
+const initializing = ref(true);
+const loading = ref(0);
 const modelIllustration = ref({
   label: 'EpicRealism XL',
   value: 'epicrealismXL_v5Ultimate.safetensors',
@@ -68,7 +69,6 @@ const style = ref<{
   illustrationTemplateSuffix:
     ', colorful and oniric painting style, beautiful, dream.',
 });
-const rawStory = ref<StoryResult | null>(null);
 const storyIndex = ref(0);
 const formattedStory = ref<StoryBook>([]);
 
@@ -88,7 +88,8 @@ const formatStoryText = (result: StoryResult): string => {
   return `${result.title}\n\n${chapters}`;
 };
 
-const generateIllustration = async (chapter: string, content: string) => {
+const generateIllustration = async (chapter: number, content: string) => {
+  loading.value += 1;
   try {
     const prompt = `Create an illustration for the following chapter:\n\n${content}`;
     const result = await textToImage(prompt, modelIllustration.value.value);
@@ -97,6 +98,12 @@ const generateIllustration = async (chapter: string, content: string) => {
       reader.onload = () => {
         if (typeof reader.result === 'string') {
           illustrations.value[chapter] = reader.result;
+
+          formattedStory.value.push({
+            text: content,
+            illustration: URL.createObjectURL(result),
+            pageNumber: chapter,
+          });
         }
       };
       reader.readAsDataURL(result);
@@ -110,6 +117,8 @@ const generateIllustration = async (chapter: string, content: string) => {
       message: `Failed to generate illustration for ${chapter}`,
       timeout: 6000,
     });
+  } finally {
+    loading.value -= 1;
   }
 };
 
@@ -123,7 +132,7 @@ const generateStory = async () => {
     return;
   }
 
-  loading.value = true;
+  loading.value += 1;
   storyText.value = '';
   storyResult.value = null;
   illustrations.value = {};
@@ -136,26 +145,33 @@ const generateStory = async () => {
       storyLength.value,
       (progress: StoryProgress) => {
         // Update progress
-        if (progress.status === 'generating') {
-          storyText.value = `Generating chapter ${progress.current_chapter} of ${progress.chapter_count}...`;
-        } else if (progress.status === 'polishing') {
-          storyText.value = `Polishing chapter ${progress.current_chapter} of ${progress.chapter_count}...`;
+        if (progress.status === 'initializing') {
+          storyText.value = 'Initializing story...';
         } else if (
-          progress.status === 'complete' &&
-          progress.chapters &&
-          progress.title
+          progress.status === 'generating_chapters' ||
+          progress.status === 'complete'
         ) {
-          const tempResult: StoryResult = {
-            title: progress.title,
-            ...progress.chapters,
-          };
-          storyText.value = formatStoryText(tempResult);
-          storyResult.value = tempResult;
-
-          // Start generating illustrations for each chapter
-          Object.entries(progress.chapters).forEach(([chapter, content]) => {
-            generateIllustration(chapter, content);
-          });
+          storyText.value = `Polishing chapter ${progress.current_chapter} of ${progress.chapter_count}...`;
+          if (progress.current_chapter) {
+            var chapterName = `chapter ${progress.current_chapter - 1}`;
+            if (progress.chapters && progress.chapters[chapterName])
+              generateIllustration(
+                progress.current_chapter,
+                progress.chapters[chapterName]
+              );
+          }
+          if (
+            progress.status === 'complete' &&
+            progress.chapters &&
+            progress.title
+          ) {
+            const tempResult: StoryResult = {
+              title: progress.title,
+              ...progress.chapters,
+            };
+            storyText.value = formatStoryText(tempResult);
+            storyResult.value = tempResult;
+          }
         }
       }
     );
@@ -170,7 +186,7 @@ const generateStory = async () => {
       timeout: 6000,
     });
   } finally {
-    loading.value = false;
+    loading.value -= 1;
   }
 };
 
@@ -181,89 +197,7 @@ async function recordCallback(text: string) {
 
 function handleUserInput() {
   querying.value = true;
-  handleUserQuery(userInput.value);
-}
-
-async function handleUserQuery(query: string) {
-  if (query == '') {
-    logger.debug('Empty user query, skipping.');
-  }
-
-  formattedStory.value = [];
-  storyIndex.value = 0;
-
-  const story = await textToStory(query, model.value, storyLength.value);
-  if (story == undefined) {
-    logger.warn('Empty story returned.');
-    querying.value = false;
-    return;
-  }
-  if (story.title != undefined) {
-    const pageCount = storyLength.value;
-    var i: number;
-    for (i = 0; i < pageCount; i++) {
-      const chapterKey = `chapter ${i}`;
-      var illustrationRequest = story[chapterKey];
-      if (style.value.illustrationTemplatePrefix !== undefined) {
-        illustrationRequest =
-          style.value.illustrationTemplatePrefix + illustrationRequest;
-      }
-      if (style.value.illustrationTemplateSuffix !== undefined) {
-        illustrationRequest =
-          illustrationRequest + style.value.illustrationTemplateSuffix;
-      }
-      const pageIllustration = await textToImage(
-        illustrationRequest,
-        modelIllustration.value.value
-      );
-      formattedStory.value.push({
-        text: story[chapterKey],
-        illustration: URL.createObjectURL(pageIllustration),
-        pageNumber: i,
-      });
-    }
-  } else {
-    rawStory.value = story;
-    logger.debug('Cutting the raw story in pages;');
-
-    let index = 0;
-    Object.keys(story).forEach(async (key) => {
-      if (key != 'title') {
-        await formatRawPageContent(story[key], index);
-        index += 1;
-      }
-    });
-  }
-  querying.value = false;
-}
-
-async function formatRawPageContent(pageContent: string, pageNumber: number) {
-  if (pageContent.trim() == '' || pageContent.trim().length < 12) {
-    logger.warn('Empty page content, skipping.');
-    return;
-  } else {
-    logger.info(`Generating page content for "${pageContent}"`);
-  }
-
-  var illustrationRequest = pageContent;
-  if (style.value.illustrationTemplatePrefix !== undefined) {
-    illustrationRequest =
-      style.value.illustrationTemplatePrefix + illustrationRequest;
-  }
-  if (style.value.illustrationTemplateSuffix !== undefined) {
-    illustrationRequest =
-      illustrationRequest + style.value.illustrationTemplateSuffix;
-  }
-
-  const pageIllustration = await textToImage(
-    illustrationRequest,
-    modelIllustration.value.value
-  );
-  formattedStory.value.push({
-    text: pageContent,
-    illustration: URL.createObjectURL(pageIllustration),
-    pageNumber: pageNumber,
-  });
+  generateStory();
 }
 
 function capitalize(text: string) {
@@ -360,7 +294,7 @@ onMounted(async () => {
       timeout: 6000,
     });
   } finally {
-    loading.value = false;
+    initializing.value = false;
   }
 });
 
@@ -416,8 +350,8 @@ watch(
           :option-label="(model) => model.name"
           :option-value="(model) => model.value"
           label="Model"
-          :loading="loading"
-          :disable="loading"
+          :loading="initializing"
+          :disable="initializing"
           class="q-mb-md"
           emit-value
           map-options
@@ -435,13 +369,12 @@ watch(
           label="Number of Chapters"
           :min="1"
           :max="10"
-          :loading="loading"
-          :disable="loading"
+          :disable="initializing"
         />
       </div>
     </div>
     <div class="story-actions row items-center wrap">
-      <div class="story-input col-grow">
+      <div class="col-grow-l col-md">
         <q-input
           class="story-input"
           outlined
@@ -450,44 +383,83 @@ watch(
           v-on:keyup.enter="handleUserInput"
         />
       </div>
+      <div class="col-xxs">
+        <q-btn
+          color="primary"
+          label="Generate Story"
+          @click="generateStory"
+          :loading="loading > 0"
+          :disable="loading > 0"
+        />
+      </div>
     </div>
-    <div class="col-12">
-      <q-btn
-        color="primary"
-        label="Generate Story"
-        @click="generateStory"
-        :loading="loading"
-        :disable="loading"
-      />
-    </div>
-    <div class="col-12">
-      <q-card v-if="storyText" class="q-mt-md">
-        <q-card-section>
-          <div class="text-h6">Generated Story</div>
-          <div class="text-body1" style="white-space: pre-wrap">
-            {{ storyText }}
-          </div>
-        </q-card-section>
-      </q-card>
-      <q-card v-if="Object.keys(illustrations).length > 0" class="q-mt-md">
-        <q-card-section>
-          <div class="text-h6">Illustrations</div>
-          <div class="row q-col-gutter-md">
-            <div
-              v-for="(illustration, chapter) in illustrations"
-              :key="chapter"
-              class="col-12 col-md-6"
+
+    <div class="story-content row items-center">
+      <div class="col">
+        <q-responsive :ratio="2">
+          <q-carousel
+            v-model="storyIndex"
+            transition-prev="slide-right"
+            transition-next="slide-left"
+            animated
+            navigation
+            control-color="primary"
+            swipeable
+            padding
+            class="shadow-2"
+          >
+            <q-carousel-slide
+              v-for="(storyPage, index) in formattedStory"
+              :key="index"
+              :name="index"
+              class="column wrap"
+              draggable="false"
             >
               <q-img
-                :src="illustration"
-                :ratio="16 / 9"
-                :alt="`Illustration for ${chapter}`"
-              />
-              <div class="text-caption q-mt-sm">{{ chapter }}</div>
-            </div>
-          </div>
-        </q-card-section>
-      </q-card>
+                style="width: 45%; min-width: 150px"
+                class="rounded-borders full-height"
+                src="src/assets/page-background.png"
+              >
+                <div
+                  class="absolute-full text-subtitle2 flex flex-center;"
+                  style="overflow-y: scroll"
+                >
+                  <div
+                    class="story-text"
+                    style="min-height: 150px; min-width: 150px"
+                  >
+                    {{ storyPage.text }}
+                  </div>
+                </div>
+              </q-img>
+              <q-img
+                style="width: 45%; min-width: 150px"
+                class="rounded-borders full-height"
+                :src="storyPage.illustration"
+              >
+              </q-img>
+            </q-carousel-slide>
+            <template v-slot:navigation-icon="{ onClick, index }">
+              <q-btn @click="onClick">
+                <q-avatar size="56px" square>
+                  <img :src="formattedStory[index].illustration" />
+                </q-avatar>
+              </q-btn>
+            </template>
+          </q-carousel>
+        </q-responsive>
+      </div>
+    </div>
+    <div class="pdf-download">
+      <q-btn
+        class="download-pdf"
+        color="primary"
+        icon="mdi-file-download"
+        @click="saveStoryPdf"
+        :disable="querying || formattedStory.length == 0"
+        padding="none"
+      />
+      <q-tooltip> Download story PDF </q-tooltip>
     </div>
     <voiceInput @record-available="recordCallback" />
   </div>
