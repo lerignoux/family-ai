@@ -9,19 +9,17 @@ from bson import ObjectId
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
-from TTS.api import TTS
-import whisper
-
-# kokoro
 from kokoro_tts import text_to_audio
+from pydantic import BaseModel
+import whisper
+import whisper_timestamped
+from whisper_timestamped.make_subtitles import write_srt
+
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 log = logging.getLogger(__name__)
 
-
 debug = os.getenv('DEBUG', '').lower() in ['1', 'true']
-
 
 app = FastAPI()
 
@@ -39,11 +37,10 @@ app.add_middleware(
 
 # FIXME Need to check the quality/speed we want.
 DEFAULT_MODEL = "small"
+log.info(f"Loading whisper model {DEFAULT_MODEL}")
 STT_MODEL = whisper.load_model(DEFAULT_MODEL).to("cuda")
 MODELS_FOLDER = "/root/.local/share/tts"
 DEFAULT_MODEL = "tts_models/en/ljspeech/fast_pitch"
-
-ApiTTS = TTS(model_name=DEFAULT_MODEL, progress_bar=False).to('cuda')
 
 
 stt_language = {
@@ -82,7 +79,7 @@ def clean_input(sentence):
 
 @app.post("/stt")
 async def create_upload_file(file: UploadFile, language: str = ""):
-    temp_file = f"/tts/input/input_{ObjectId()}_{file.filename}"
+    temp_file = f"/app/tts/input/input_{ObjectId()}_{file.filename}"
 
     async with aiofiles.open(temp_file, 'wb') as out_file:
         content = await file.read()
@@ -98,7 +95,7 @@ async def create_upload_file(file: UploadFile, language: str = ""):
 
 @app.post("/transcribe")
 async def transcribe_file(file: UploadFile, language: str = ""):
-    temp_file = f"/tts/input/input_{ObjectId()}_{file.filename}"
+    temp_file = f"/app/tts/input/input_{ObjectId()}_{file.filename}"
 
     async with aiofiles.open(temp_file, 'wb') as out_file:
         content = await file.read()
@@ -117,21 +114,19 @@ def readPost(query: TTSRequest):
     """
     Process the given input into audio convert in mp3 and returns it as a file.
     """
-    output_wav = f"/tts/output/output_{ObjectId()}.wav"
+    output_wav = f"/app/tts/output/output_{ObjectId()}.wav"
     sentence = clean_input(query.sentence)
     language = 'en'
     if hasattr(query, 'language'):
         language = query.language
     log.debug(f"Requested to voice: `{sentence}`")
 
-    if query.model == "kokoro-82M":
-        text_to_audio(text=sentence, file_path=output_wav, language=language)
-    else:
+    if query.model != "kokoro-82M":
+        log.error(f"only kokoro TTS engine is supported")
         if query.language != 'en':
-            raise HTTPException(status_code=400, detail="Only english is supported yet.")
+            raise HTTPException(status_code=400, detail="Only kokoro TTS engine is supported.")
 
-        ApiTTS.tts_to_file(text=sentence, file_path=output_wav)
-
+    text_to_audio(text=sentence, file_path=output_wav, language=language)
     output_mp3 = convert_to_mp3(output_wav)
 
     return FileResponse(output_mp3, media_type="audio/mpeg")
@@ -150,14 +145,25 @@ def read_item():
     """
     List the currently available models.
     """
-    tts_manager = TTS().list_models()
-    models = { model:False for model in tts_manager.list_models()}
-    for root, dirs, files in os.walk(MODELS_FOLDER):
-        for directory in dirs:
-            model_name = directory.replace("--", "/")
-            log.info(models)
-            if model_name in models:
-                models[model_name] = True
-            else:
-                log.warning(f"Unknown model {model_name}")
-    return models
+    return [{"hexgrad/Kokoro-82M": True}]
+
+
+@app.post("/subtitles")
+async def get_subtitles(file: UploadFile, language: str = ""):
+    temp_file = f"/app/tts/input/input_{ObjectId()}_{file.filename}"
+
+    async with aiofiles.open(temp_file, 'wb') as out_file:
+        content = await file.read()
+        await out_file.write(content)
+
+    audio = whisper_timestamped.load_audio(temp_file)
+    model = whisper_timestamped.load_model("openai/whisper-large-v2", device="cuda")
+    result = whisper_timestamped.transcribe(model, audio, language="fr")
+    log.info(result)
+    subtitles_file = f"/tts/output/subtitles_{ObjectId()}_{file.filename}.srt"
+
+    segments = result["segments"]
+    with open(subtitles_file, "w", encoding="utf-8") as f:
+        write_srt(segments, file=f)
+
+    return FileResponse(subtitles_file, media_type="text")

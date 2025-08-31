@@ -225,7 +225,7 @@ async def translate_audio_stream(websocket: WebSocket):
 
 
         # Save audio to temporary file for STT processing
-        temp_file = f"/argos-translate/input/input_{ObjectId()}_websocket.{audio_type}"
+        temp_file = f"/app/argos-translate/input/input_{ObjectId()}_websocket.{audio_type}"
         with open(temp_file, 'wb') as f:
             f.write(audio_blob)
 

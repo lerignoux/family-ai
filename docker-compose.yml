@@ -40,7 +40,7 @@ services:
     secrets:
       - mistral_api_key
     volumes:
-      - ./ollama:/ollama
+      - ./ollama:/app/ollama
 
   tts:
     container_name: tts
@@ -58,8 +58,9 @@ services:
       - 8186:80
     restart: always
     volumes:
-      - ./tts:/tts
+      - ./tts:/app/tts
       - ./tts/models:/root/.local/share/tts/
+      - ./tts/cache:/root/.cache/
 
   argos-translate:
     container_name: argos-translate
@@ -83,7 +84,7 @@ services:
     ports:
       - 8187:80
     volumes:
-      - ./argos-translate:/argos-translate
+      - ./argos-translate:/app/argos-translate
       - ./argos-translate/local:/root/.local
     restart: always
 
@@ -106,10 +107,10 @@ services:
       - 8188:8188
     restart: always
     volumes:
-      - ~/app/models/:/ComfyUI/models/
-      - ./comfy/output:/ComfyUI/output
-      - ./comfy/custom_nodes:/ComfyUI/custom_nodes
-      - ./comfy/user:/ComfyUI/user
+      - ~/app/models/:/app/ComfyUI/models/
+      - ./comfy/output:/app/ComfyUI/output
+      - ./comfy/custom_nodes:/app/ComfyUI/custom_nodes
+      - ./comfy/user:/app/ComfyUI/user
 
   app:
     container_name: app

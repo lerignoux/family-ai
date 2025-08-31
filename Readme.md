@@ -38,7 +38,7 @@ A speech to text utility using [whisper](https://github.com/openai/whisper)
 ## Build:
 Base image building:
 ```
-docker build . -f Dockerfile -t lerignoux/base-ai-service
+docker build . -f Dockerfile --build-arg UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple  -t lerignoux/base-ai-service
 ```
 
 ## hosting

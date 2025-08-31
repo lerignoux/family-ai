@@ -1,10 +1,9 @@
 FROM lerignoux/base-ai-service
 
-RUN mkdir /ollama
-WORKDIR /ollama
-COPY . /ollama
+RUN mkdir /app/ollama
+WORKDIR /app/ollama
+COPY . /app/ollama
 
-COPY requirements.txt /ollama/requirements.txt
-RUN --mount=type=cache,target=/root/.cache/pip python -m pip install --upgrade -r /ollama/requirements.txt
+RUN --mount=type=cache,target=/root/.cache/uv uv pip install --upgrade -r /app/ollama/requirements.txt
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80", "--reload"]
