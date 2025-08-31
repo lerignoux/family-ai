@@ -5,3 +5,4 @@ fastapi~=0.110.0
 pydantic~=2.7.2
 uvicorn[standard]~=0.30
 python-multipart~=0.0
+transformers~=4.56

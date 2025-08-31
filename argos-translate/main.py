@@ -4,6 +4,7 @@ import os
 import requests
 import sys
 import torch
+from transformers import AutoProcessor, SeamlessM4TModel
 import json
 import base64
 from bson import ObjectId
@@ -13,6 +14,9 @@ import argostranslate.translate
 from fastapi import FastAPI, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+
+from transformers import pipeline
+
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 log = logging.getLogger(__name__)
@@ -52,14 +56,33 @@ for from_code in languages:
         except StopIteration:
             log.error(f"Could not install translation {from_code}->{to_code}, skipping.")
 
+m4t_processor = AutoProcessor.from_pretrained("facebook/hf-seamless-m4t-medium")
+m4t_model = SeamlessM4TModel.from_pretrained("facebook/hf-seamless-m4t-medium")
+
+argos_to_m4t = {
+    'en': 'eng',
+    'fr': 'fra',
+    'zh': 'cmn',
+    'sp': 'spa'
+}
+
 
 @app.post("/translate")
-def translate(sentence: str, from_code='en', to_code='fr'):
+def translate(sentence: str, from_code='en', to_code='fr', model='argos'):
     """
     Process the given input into audio convert in mp3 and returns it as a file.
     """
-    translatedText = argostranslate.translate.translate(sentence, from_code, to_code)
-    return {"result": translatedText}
+    if model == 'argos':
+        translated_text = argostranslate.translate.translate(sentence, from_code, to_code)
+        return {"result": translated_text}
+    elif model == 'm4t':
+        text_inputs = m4t_processor(text=sentence, src_lang=argos_to_m4t[from_code], return_tensors="pt")
+        output_tokens = m4t_model.generate(**text_inputs, tgt_lang=argos_to_m4t[to_code], generate_speech=False)
+        translated_text = m4t_processor.decode(output_tokens[0].tolist()[0], skip_special_tokens=True)
+        return {"result": translated_text}
+    else:
+        log.error(f"Model {model} not supported.")
+        return
 
 
 @app.websocket("/translate_text_stream")
@@ -75,6 +98,7 @@ async def translate_text_stream(websocket: WebSocket):
         query_params = websocket.query_params
         from_code = query_params.get('from_code', 'en')
         to_code = query_params.get('to_code', 'fr')
+        model = query_params.get('model', 'argos')
 
         log.info(f"WebSocket connection established for text translation {from_code}->{to_code}")
 
@@ -98,7 +122,17 @@ async def translate_text_stream(websocket: WebSocket):
 
         # Step 1: Translation
         try:
-            translated_text = argostranslate.translate.translate(text_input, from_code, to_code)
+            translated_text = None
+            if model == 'argos':
+                translated_text = argostranslate.translate.translate(text_input, from_code, to_code)
+                return {"result": translated_text}
+            elif model == 'm4t':
+                text_inputs = m4t_processor(text=text_input, src_lang=argos_to_m4t[from_code], return_tensors="pt")
+                output_tokens = m4t_model.generate(**text_inputs, tgt_lang=argos_to_m4t[to_code], generate_speech=False)
+                translated_text = m4t_processor.decode(output_tokens[0].tolist()[0], skip_special_tokens=True)
+            else:
+                log.error(f"Model {model} not supported.")
+                raise Exception(f"Model {model} not supported.")
             log.info(f"Translated text: {translated_text}")
 
             # Send progress update
@@ -170,7 +204,7 @@ async def translate_text_stream(websocket: WebSocket):
 
 
 @app.post("/translate_audio")
-async def translate_audio(file: UploadFile, from_code='en', to_code='fr'):
+async def translate_audio(file: UploadFile, from_code='en', to_code='fr', model='argos'):
     temp_file = f"/argos-translate/input/input_{ObjectId()}_{file.filename}"
     """
     Process the given input into audio convert in mp3 and returns it as a file.
@@ -185,11 +219,20 @@ async def translate_audio(file: UploadFile, from_code='en', to_code='fr'):
     }
     response = requests.post("http://192.168.2.10:8186/stt", files=multipart_form_data)
     data = response.json()
-    translatedText = argostranslate.translate.translate(data.get('result'), from_code, to_code)
 
+    translated_text = None
+    if model == 'argos':
+        translated_text = argostranslate.translate.translate(data.get('result'), from_code, to_code)
+    elif model == 'm4t':
+        text_inputs = m4t_processor(text=data.get('result'), src_lang=argos_to_m4t[from_code], return_tensors="pt")
+        output_tokens = m4t_model.generate(**text_inputs, tgt_lang=argos_to_m4t[to_code], generate_speech=False)
+        translated_text = m4t_processor.decode(output_tokens[0].tolist()[0], skip_special_tokens=True)
+    else:
+        log.error(f"Model {model} not supported.")
+        raise Exception(f"Model {model} not supported.")
 
     post_data = {
-        'sentence': translatedText,
+        'sentence': translated_text,
         'model': 'kokoro-82M',
         'language': to_code
     }
