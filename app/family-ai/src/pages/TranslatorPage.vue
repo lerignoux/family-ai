@@ -191,18 +191,8 @@ async function handleUserQuery(query: string) {
             aiTranslation.value = progress.translatedText;
           }
         },
-        onComplete: async (resultBlob: Blob) => {
+        onComplete: async () => {
           try {
-            const audioUrl = URL.createObjectURL(resultBlob);
-            const audio = new Audio(audioUrl);
-
-            audio.onended = () => {
-              URL.revokeObjectURL(audioUrl); // Clean up the URL
-            };
-
-            await audio.play();
-            logger.debug('Playing translated audio');
-
             bus.emit(
               'read-text',
               aiTranslation.value,
