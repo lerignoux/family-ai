@@ -10,9 +10,9 @@
     <q-btn
       fab
       id="recordButton"
-      :color="recording ? 'secondary' : 'primary'"
+      :color="recording ? 'secondary' : authorized ? 'primary' : 'orange'"
       :loading="recording"
-      :icon="recordIcon"
+      :icon="authorized ? 'mic' : 'mic_off'"
     />
   </q-page-sticky>
 </template>
@@ -56,7 +56,7 @@ const emit = defineEmits<{
 
 var audioRecorder: MediaRecorder;
 const recording = ref(false);
-const recordIcon = ref('perm_camera_mic');
+const authorized = ref(false);
 const isMobile = ref(false);
 
 // Check if device is mobile
@@ -102,19 +102,19 @@ async function requestAudioDevice() {
 
     audioRecorder = new MediaRecorder(stream, options);
     audioRecorder.ondataavailable = handleUserStream;
-    recordIcon.value = 'mic';
+    authorized.value = true;
     return true;
   } catch (error) {
     console.error('Error accessing microphone:', error);
-    recordIcon.value = 'mic_off';
+    authorized.value = false;
     return false;
   }
 }
 
 async function recordAudio() {
   if (!audioRecorder) {
-    const success = await requestAudioDevice();
-    if (!success) return;
+    await requestAudioDevice();
+    return;
   }
 
   try {
@@ -123,6 +123,7 @@ async function recordAudio() {
     audioRecorder.start();
   } catch (error) {
     console.error('Error starting recording:', error);
+    authorized.value = false;
     recording.value = false;
   }
 }
