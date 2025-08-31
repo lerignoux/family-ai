@@ -2,12 +2,12 @@ import logging
 from kokoro import KPipeline
 from IPython.display import display, Audio
 import soundfile as sf
-import torch
 
 log = logging.getLogger(__name__)
 
+log.info(f"Loading kokoro pipeline 'hexgrad/Kokoro-82M'")
 languages = {
-    'en': { 'code': 'a', 'voice': 'af_sarah', 'pipeline': KPipeline(lang_code='a')},
+    'en': { 'code': 'a', 'voice': 'af_sarah', 'pipeline': KPipeline(lang_code='a', repo_id="hexgrad/Kokoro-82M")},
     'es': { 'code': 'e', 'voice': '', 'pipeline': None},
     'fr': { 'code':'f', 'voice': 'ff_siwis', 'pipeline': None},
     'zh': { 'code': 'z', 'voice': 'zf_xiaoyi', 'pipeline': None},
@@ -24,7 +24,7 @@ def language_config(language):
 def text_to_audio(text, file_path, language='en'):
     voice_config = language_config(language)
     if not voice_config.get('pipeline'):
-        languages[language]['pipeline'] = KPipeline(lang_code=voice_config['code'])
+        languages[language]['pipeline'] = KPipeline(lang_code=voice_config['code'], repo_id="hexgrad/Kokoro-82M")
     pipeline = voice_config['pipeline']
 
     generator = pipeline(text, voice=voice_config['voice'])
