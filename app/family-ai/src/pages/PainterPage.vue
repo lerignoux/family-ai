@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue';
 import { textToImage } from '../components/api/comfy';
-import { getAvailableModels, type OllamaModel } from '../components/api/llm';
+import { getAvailableModels, type ComfyModel } from '../components/api/comfy';
 import voiceInput from '../components/VoiceInput.vue';
 import { saveUserSelection, getPageSelection } from '../utils/localStorage';
 import { logger } from '../utils/logger';
 
 const userInput = ref('');
 const model = ref('');
-const models = ref<OllamaModel[]>([]);
+const models = ref<ComfyModel[]>([]);
 const loading = ref(true);
 const imageUrl = ref('');
 const querying = ref(false);
