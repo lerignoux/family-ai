@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 from typing import Union, Annotated
+from time import sleep
 
 from bson import ObjectId
 from fastapi import FastAPI, File, UploadFile, HTTPException
@@ -11,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from kokoro_tts import text_to_audio
 from pydantic import BaseModel
+import subprocess
 import whisper
 import whisper_timestamped
 from whisper_timestamped.make_subtitles import write_srt
@@ -51,6 +53,15 @@ stt_language = {
     'jp': "Janaese"
 }
 
+videos_types = {
+    '.flv': {'mime': 'video/x-flv'},
+    '.mp4': {'mime': 'video/mp4'},
+    '.3gp': {'mime': 'video/3gpp'},
+    '.mov': {'mime': 'video/quicktime'},
+    '.avi': {'mime': 'video/x-msvideo'},
+    '.wmv': {'mime': 'video/x-ms-wmv'},
+    '.ogg': {'mime': 'video/ogg'}
+}
 
 class TTSRequest(BaseModel):
     sentence: str
@@ -66,15 +77,46 @@ def convert_to_mp3(filename, delete=True):
     output = filename.replace(".wav", ".mp3")
     command = f"ffmpeg -hwaccel cuda -y -i {filename} -vn -ar 44100 -ac 2 -b:a 192k {output}"
     log.info(f"Executing `{command}`")
-    process = subprocess.Popen(command.split(" "))
-    process.wait()
-    if delete:
-        os.remove(filename)
+    try:
+        process = subprocess.Popen(command.split(" "))
+        process.wait()
+        if delete:
+            os.remove(filename)
+    except subprocess.CalledProcessError as e:
+        raise Exception(f"Error converting audio to mp3: {e}")
     return output
 
 
 def clean_input(sentence):
     return sentence.replace("\"", "").replace("'", "").replace("\n", "")
+
+
+subtitles_ids = {
+    '.en': 'eng',
+    '.fr': 'fra',
+    '.zh': 'chi',
+    '.sp': 'spa'
+}
+
+
+def get_subtitles_language(subtitles_file):
+    ext = os.path.splitext(os.path.splitext(subtitles_file)[0])[1]
+    return subtitles_ids.get(ext)
+
+
+def embed_subtitles(video_file, subtitles_file, output_video_file):
+    subtitle_options = f"-map 1:s"
+    lang = get_subtitles_language(subtitles_file)
+    if lang:
+        subtitle_options += f" -metadata:s:s:0 language={lang}"
+    command = f"ffmpeg -i {video_file} -i {subtitles_file} -map 0:v -map 0:a -c:v copy -c:a copy -c:s mov_text {subtitle_options} {output_video_file}"
+    log.info(f"Executing `{command}`")
+    try:
+        subprocess.run(command.split(" "), check=True)
+        log.debug("FFmpeg subtitles integration executed successfully.")
+    except subprocess.CalledProcessError as e:
+        raise Exception(f"Error embedding subtitles in input video: {e}")
+    return output_video_file
 
 
 @app.post("/stt")
@@ -148,9 +190,14 @@ def read_item():
     return [{"hexgrad/Kokoro-82M": True}]
 
 
-@app.post("/subtitles")
-async def get_subtitles(file: UploadFile, language: str = ""):
-    temp_file = f"/app/tts/input/input_{ObjectId()}_{file.filename}"
+@app.post("/stt/subtitles")
+async def get_subtitles(file: UploadFile, language: str = "", embed: bool = True):
+    log.info(f"Requested subtitles in {language}.")
+    filename, extension = os.path.splitext(file.filename)
+    full_filename = f"{ObjectId()}_{filename}"
+    temp_file = f"/app/tts/input/{full_filename}{extension}"
+    output_video_file = f"/app/tts/output/{full_filename}{extension}"
+    subtitles_file = f"/app/tts/output/{full_filename}.{language}.srt"
 
     async with aiofiles.open(temp_file, 'wb') as out_file:
         content = await file.read()
@@ -158,12 +205,14 @@ async def get_subtitles(file: UploadFile, language: str = ""):
 
     audio = whisper_timestamped.load_audio(temp_file)
     model = whisper_timestamped.load_model("openai/whisper-large-v2", device="cuda")
-    result = whisper_timestamped.transcribe(model, audio, language="fr")
-    log.info(result)
-    subtitles_file = f"/tts/output/subtitles_{ObjectId()}_{file.filename}.srt"
+    result = whisper_timestamped.transcribe(model, audio, language=language)
 
     segments = result["segments"]
     with open(subtitles_file, "w", encoding="utf-8") as f:
         write_srt(segments, file=f)
 
-    return FileResponse(subtitles_file, media_type="text")
+    if embed and extension in videos_types.keys():
+        subtitled_file = embed_subtitles(temp_file, subtitles_file, output_video_file)
+        return FileResponse(subtitled_file)
+    else:
+        return FileResponse(subtitles_file, media_type="text")

@@ -1,6 +1,6 @@
 FROM lerignoux/base-ai-service
 
-RUN --mount=type=cache,target=/root/.cache/apt apt-get update && apt-get install -y --no-install-recommends ffmpeg espeak-ng
+RUN --mount=type=cache,target=/root/.cache/apt apt-get update && apt-get install -y --no-install-recommends ffmpeg espeak-ng fonts-noto-color-emoji
 
 RUN mkdir /app/tts
 WORKDIR /app/tts
