@@ -122,6 +122,7 @@ async function handleUserQuery(query: string, model: string) {
   margin-left: 20px;
   margin-right: 20px;
   height: 100%;
+  padding: 20px;
 }
 
 .painting-options {

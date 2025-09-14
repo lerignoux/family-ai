@@ -64,3 +64,41 @@ export async function speechToText(blob: Blob, language = null) {
   logger.info(`Text decoded from audio: "${data}"`);
   return data;
 }
+
+export async function generateSubtitles(
+  file: File,
+  language: string,
+  embed = true
+) {
+  logger.debug(
+    `Requested subtitles for video file: ${file.name} in language: ${language}`
+  );
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('language', language);
+  formData.append('embed', embed.toString());
+
+  const params = new URLSearchParams({
+    language: language,
+    embed: `${embed}`,
+  }).toString();
+
+  const requestOptions = {
+    method: 'POST',
+    body: formData,
+  };
+
+  const rawResponse = await fetch(
+    `${process.env.API_SCHEME}://${process.env.API_URL}:${process.env.TTS_PORT}/stt/subtitles?${params}`,
+    requestOptions
+  );
+
+  if (!rawResponse.ok) {
+    throw new Error(`Failed to generate subtitles: ${rawResponse.statusText}`);
+  }
+
+  const blobResponse = await rawResponse.blob();
+  logger.debug('Subtitles generated successfully.');
+  return blobResponse;
+}

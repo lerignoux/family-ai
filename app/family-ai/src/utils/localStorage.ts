@@ -7,15 +7,18 @@ export interface UserSelections {
     language_src?: { label: string; value: string };
     language_dst?: { label: string; value: string };
   };
+  subtitler?: {
+    language?: { label: string; value: string };
+  };
   painter?: {
     model?: string;
   };
   storyTeller?: {
     model?: string;
     storyLength?: number;
-    style?: { 
-      label: string; 
-      illustrationTemplateSuffix?: string; 
+    style?: {
+      label: string;
+      illustrationTemplateSuffix?: string;
       illustrationTemplatePrefix?: string;
     };
   };
@@ -23,7 +26,11 @@ export interface UserSelections {
 
 const STORAGE_KEY = 'family-ai-user-selections';
 
-export function saveUserSelection(page: keyof UserSelections, key: string, value: any): void {
+export function saveUserSelection(
+  page: keyof UserSelections,
+  key: string,
+  value: any
+): void {
   try {
     const existing = getUserSelections();
     if (!existing[page]) {
@@ -57,4 +64,4 @@ export function clearUserSelections(): void {
   } catch (error) {
     console.error('Error clearing user selections:', error);
   }
-} 
+}

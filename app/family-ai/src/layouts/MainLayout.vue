@@ -69,6 +69,12 @@ const pageLinksList: PageLinkProps[] = [
     link: 'translator',
   },
   {
+    title: 'Subtitler',
+    caption: 'Generate subtitles for your videos',
+    icon: 'subtitles',
+    link: 'subtitler',
+  },
+  {
     title: 'Painter',
     caption: 'Can I paint something for you ?',
     icon: 'palette',
