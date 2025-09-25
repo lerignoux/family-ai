@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { inject, ref, onMounted, watch } from 'vue';
+import { inject, ref, onMounted, watch, onUnmounted } from 'vue';
 import { generateSubtitles } from '../components/api/tts';
 import { saveUserSelection, getPageSelection } from '../utils/localStorage';
 import { logger } from '../utils/logger';
+import { audioExtractor } from '../utils/audioExtractor';
 
 const bus = inject<any>('bus');
 const selectedFile = ref<File | null>(null);
@@ -12,6 +13,9 @@ const processing = ref(false);
 const progressMessage = ref('');
 const downloadUrl = ref('');
 const fileName = ref('');
+const isLargeFile = ref(false);
+const extractedAudioFile = ref<File | null>(null);
+const ffmpegAvailable = ref(true);
 
 const languages = ref([
   { label: 'English', value: 'en' },
@@ -31,6 +35,8 @@ const supportedVideoTypes = [
   '.ogg',
 ];
 
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 100MB in bytes
+
 onMounted(() => {
   // Load saved language selection
   const savedSelections = getPageSelection('subtitler');
@@ -40,6 +46,11 @@ onMounted(() => {
   if (savedSelections.embedSubtitles !== undefined) {
     embedSubtitles.value = savedSelections.embedSubtitles;
   }
+});
+
+onUnmounted(() => {
+  // Cleanup audio extractor when component is unmounted
+  audioExtractor.cleanup();
 });
 
 // Watch for language changes and save to localStorage
@@ -53,15 +64,42 @@ watch(embedSubtitles, (newValue) => {
   saveUserSelection('subtitler', 'embedSubtitles', newValue);
 });
 
-function handleFileSelect(event: Event) {
-  const target = event.target as HTMLInputElement;
-  if (target.files && target.files[0]) {
-    const file = target.files[0];
+// Watch for large file changes to disable embed option
+watch(isLargeFile, (isLarge) => {
+  if (isLarge) {
+    embedSubtitles.value = false;
+  }
+});
+
+function handleFileSelect(file: File | null) {
+  if (file) {
     const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
 
     if (supportedVideoTypes.includes(fileExtension)) {
       selectedFile.value = file;
       fileName.value = file.name;
+
+      // Check if file is larger than 100MB
+      if (file.size > MAX_FILE_SIZE) {
+        isLargeFile.value = true;
+        embedSubtitles.value = false;
+        logger.debug(
+          `Large file detected: ${file.name} (${(
+            file.size /
+            (1024 * 1024)
+          ).toFixed(2)}MB)`
+        );
+
+        bus.emit('show-notification', {
+          type: 'warning',
+          message:
+            'Large file detected. Audio will be extracted and subtitles will be generated as SRT file.',
+          timeout: 5000,
+        });
+      } else {
+        isLargeFile.value = false;
+      }
+
       logger.debug(`Selected file: ${file.name}`);
     } else {
       bus.emit('show-notification', {
@@ -71,7 +109,16 @@ function handleFileSelect(event: Event) {
         )}`,
         timeout: 5000,
       });
+      // Clear the file if it's not supported
+      selectedFile.value = null;
+      fileName.value = '';
     }
+  } else {
+    // File was cleared
+    selectedFile.value = null;
+    fileName.value = '';
+    isLargeFile.value = false;
+    extractedAudioFile.value = null;
   }
 }
 
@@ -89,12 +136,49 @@ async function generateSubtitlesForVideo() {
     processing.value = true;
     progressMessage.value = 'Processing video and generating subtitles...';
 
+    let fileToProcess = selectedFile.value;
+
+    // If it's a large file, try to extract audio first
+    if (isLargeFile.value) {
+      if (!ffmpegAvailable.value) {
+        bus.emit('show-notification', {
+          type: 'negative',
+          message:
+            'Audio extraction is not available. Please use a smaller file or try again later.',
+          timeout: 5000,
+        });
+        return;
+      }
+
+      progressMessage.value = 'Extracting audio from large video file...';
+      try {
+        extractedAudioFile.value = await audioExtractor.extractAudioFromVideo(
+          selectedFile.value
+        );
+        fileToProcess = extractedAudioFile.value;
+        progressMessage.value =
+          'Audio extracted successfully. Generating subtitles...';
+      } catch (error) {
+        logger.error('Error extracting audio:', error);
+
+        // If FFmpeg fails, disable it for this session
+        ffmpegAvailable.value = false;
+
+        bus.emit('show-notification', {
+          type: 'negative',
+          message: `Failed to extract audio: ${error}. Please use a smaller file or try again later.`,
+          timeout: 5000,
+        });
+        return;
+      }
+    }
+
     logger.debug(
-      `Generating subtitles for ${selectedFile.value.name} in ${language.value.label}`
+      `Generating subtitles for ${fileToProcess.name} in ${language.value.label}`
     );
 
     const result = await generateSubtitles(
-      selectedFile.value,
+      fileToProcess,
       language.value.value,
       embedSubtitles.value
     );
@@ -151,6 +235,8 @@ function downloadResult() {
 function clearFile() {
   selectedFile.value = null;
   fileName.value = '';
+  isLargeFile.value = false;
+  extractedAudioFile.value = null;
   if (downloadUrl.value) {
     URL.revokeObjectURL(downloadUrl.value);
     downloadUrl.value = '';
@@ -180,10 +266,17 @@ function clearFile() {
       <div class="col-grow-xs col-md">
         <q-toggle
           v-model="embedSubtitles"
+          :disable="isLargeFile"
           label="Embed subtitles in video"
           color="primary"
           dark
         />
+        <div v-if="isLargeFile" class="text-caption text-grey-5 q-mt-xs">
+          Disabled for large files - will generate SRT file instead
+        </div>
+        <div v-if="!ffmpegAvailable" class="text-caption text-orange-5 q-mt-xs">
+          Audio extraction temporarily unavailable
+        </div>
       </div>
     </div>
 
@@ -233,6 +326,7 @@ function clearFile() {
         color="primary"
         class="q-mb-md"
       />
+      <div class="text-center text-body2">{{ progressMessage }}</div>
     </div>
 
     <div class="download-section" v-if="downloadUrl">

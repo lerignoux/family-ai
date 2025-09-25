@@ -13,6 +13,9 @@
     "build": "quasar build"
   },
   "dependencies": {
+    "@ffmpeg/core-mt": "^0.12.10",
+    "@ffmpeg/ffmpeg": "^0.12.10",
+    "@ffmpeg/util": "^0.12.2",
     "@quasar/extras": "^1.16.4",
     "dotenv": "^16.4.7",
     "jspdf": "^2.5.2",
@@ -25,7 +28,7 @@
   },
   "devDependencies": {
     "@quasar/app-vite": "^1.9.0",
-    "@types/node": "^12.20.21",
+    "@types/node": "^12.20.55",
     "@types/ws": "^8.5.13",
     "@typescript-eslint/eslint-plugin": "^5.10.0",
     "@typescript-eslint/parser": "^5.10.0",
