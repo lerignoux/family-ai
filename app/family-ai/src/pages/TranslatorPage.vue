@@ -236,6 +236,12 @@ async function handleUserQuery(query: string) {
     querying.value = false;
   }
 }
+
+async function invertLanguages() {
+  var tmp = language_src.value;
+  language_src.value = language_dst.value;
+  language_dst.value = tmp;
+}
 </script>
 
 <template>
@@ -255,7 +261,17 @@ async function handleUserQuery(query: string) {
           </template>
         </q-select>
       </div>
-
+      <div class="translate-actions invert-languages">
+        <q-btn
+          class="translate-action"
+          @click="invertLanguages"
+          id="invertButton"
+          round
+          color="primary"
+          icon="mdi-swap-horizontal"
+          size="s"
+        />
+      </div>
       <div class="col-grow-xs col-md">
         <q-select
           standout="bg-grey-9 text-white"
