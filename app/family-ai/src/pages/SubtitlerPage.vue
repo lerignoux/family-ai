@@ -53,25 +53,27 @@ watch(embedSubtitles, (newValue) => {
   saveUserSelection('subtitler', 'embedSubtitles', newValue);
 });
 
-function handleFileSelect(event: Event) {
-  const target = event.target as HTMLInputElement;
-  if (target.files && target.files[0]) {
-    const file = target.files[0];
-    const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+function handleFileSelect(file: File | null) {
+  if (!file) {
+    selectedFile.value = null;
+    fileName.value = '';
+    return;
+  }
 
-    if (supportedVideoTypes.includes(fileExtension)) {
-      selectedFile.value = file;
-      fileName.value = file.name;
-      logger.debug(`Selected file: ${file.name}`);
-    } else {
-      bus.emit('show-notification', {
-        type: 'negative',
-        message: `Unsupported file type. Supported types: ${supportedVideoTypes.join(
-          ', '
-        )}`,
-        timeout: 5000,
-      });
-    }
+  const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+
+  if (supportedVideoTypes.includes(fileExtension)) {
+    selectedFile.value = file;
+    fileName.value = file.name;
+    logger.debug(`Selected file: ${file.name}`);
+  } else {
+    selectedFile.value = null;
+    fileName.value = '';
+    bus.emit('show-notification', {
+      type: 'negative',
+      message: `Unsupported file type. Supported types: ${supportedVideoTypes.join(', ')}`,
+      timeout: 5000,
+    });
   }
 }
 
