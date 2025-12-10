@@ -17,6 +17,11 @@ export async function getAvailableModels(): Promise<ComfyModel[]> {
   logger.info('Fetching available models from Ollama');
   const models = [
     {
+      name: 'Z Image',
+      value: 'z-image-turbo-fp8-e4m3fn.safetensors',
+      description: 'Z image model for realist pictures.',
+    },
+    {
       name: 'Dreamshaper',
       value: 'dreamshaperXL_v21TurboDPMSDE.safetensors',
       description: 'a model trained on fantasy.',
@@ -36,73 +41,26 @@ export async function getAvailableModels(): Promise<ComfyModel[]> {
   return models;
 }
 
-export async function textToImage(prompt: string, model: string) {
+export async function textToImage(
+  prompt: string,
+  model: string,
+  template = 'z_image_turbo.json'
+) {
   logger.info(`Requested image generation for: "${prompt}"`);
-  const promptData: Prompt = {
-    '3': {
-      class_type: 'KSampler',
-      inputs: {
-        cfg: 8,
-        denoise: 1,
-        latent_image: ['5', 0],
-        model: ['4', 0],
-        negative: ['7', 0],
-        positive: ['6', 0],
-        sampler_name: 'euler',
-        scheduler: 'normal',
-        seed: Math.random(),
-        steps: 20,
-      },
-    },
-    '4': {
-      class_type: 'CheckpointLoaderSimple',
-      inputs: {
-        ckpt_name: model,
-      },
-    },
-    '5': {
-      class_type: 'EmptyLatentImage',
-      inputs: {
-        batch_size: 1,
-        height: 512,
-        width: 512,
-      },
-    },
-    '6': {
-      class_type: 'CLIPTextEncode',
-      inputs: {
-        clip: ['4', 1],
-        text: prompt,
-      },
-    },
-    '7': {
-      class_type: 'CLIPTextEncode',
-      inputs: {
-        clip: ['4', 1],
-        text: 'bad hands',
-      },
-    },
-    '8': {
-      class_type: 'VAEDecode',
-      inputs: {
-        samples: ['3', 0],
-        vae: ['4', 2],
-      },
-    },
-    '9': {
-      class_type: 'SaveImage',
-      inputs: {
-        filename_prefix: 'ComfyUI',
-        images: ['8', 0],
-      },
-    },
-  };
+  const workflowTemplate = await import(`./comfy/workflows/${template}.json`);
+  // Access the JSON data via the 'default' export
+  const promptData: Prompt = workflowTemplate.default;
 
-  // Set the text prompt for our positive CLIPTextEncode
-  promptData['6'].inputs.text = prompt;
-
-  // Set the seed for our KSampler node
-  promptData['3'].inputs.seed = Math.random();
+  if (template == 'z_image_turbo') {
+    promptData['34:27'].inputs.text = prompt;
+    promptData['34:3'].inputs.seed = Math.random();
+    promptData['34:28'].inputs.unet_name = model;
+  }
+  if (template == 'simple') {
+    promptData['6'].inputs.text = prompt;
+    promptData['3'].inputs.seed = Math.random();
+    promptData['4'].inputs.ckpt_name = model;
+  }
 
   // Create client
   const serverAddress = `${process.env.COMFY_URL}`;
