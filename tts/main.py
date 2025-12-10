@@ -1,32 +1,30 @@
-import aiofiles
 import logging
 import os
 import subprocess
 import sys
-from typing import Union, Annotated
 from time import sleep
+from typing import Annotated, Union
 
+import aiofiles
+import whisper
+import whisper_timestamped
 from bson import ObjectId
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from kokoro_tts import text_to_audio
 from pydantic import BaseModel
-import subprocess
-import whisper
-import whisper_timestamped
 from whisper_timestamped.make_subtitles import write_srt
-
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 log = logging.getLogger(__name__)
 
-debug = os.getenv('DEBUG', '').lower() in ['1', 'true']
+debug = os.getenv("DEBUG", "").lower() in ["1", "true"]
 
 app = FastAPI()
 
 origins = ["http://localhost", "https://localhost"]
-if 'HOST' in os.environ:
+if "HOST" in os.environ:
     origins.append(f"{os.environ['HOST']}")
 app.add_middleware(
     CORSMiddleware,
@@ -46,22 +44,23 @@ DEFAULT_MODEL = "tts_models/en/ljspeech/fast_pitch"
 
 
 stt_language = {
-    'en': "English",
-    'es': "Espanol",
-    'fr': "French",
-    'zh': "Chinese",
-    'jp': "Janaese"
+    "en": "English",
+    "es": "Espanol",
+    "fr": "French",
+    "zh": "Chinese",
+    "jp": "Janaese",
 }
 
 videos_types = {
-    '.flv': {'mime': 'video/x-flv'},
-    '.mp4': {'mime': 'video/mp4'},
-    '.3gp': {'mime': 'video/3gpp'},
-    '.mov': {'mime': 'video/quicktime'},
-    '.avi': {'mime': 'video/x-msvideo'},
-    '.wmv': {'mime': 'video/x-ms-wmv'},
-    '.ogg': {'mime': 'video/ogg'}
+    ".flv": {"mime": "video/x-flv"},
+    ".mp4": {"mime": "video/mp4"},
+    ".3gp": {"mime": "video/3gpp"},
+    ".mov": {"mime": "video/quicktime"},
+    ".avi": {"mime": "video/x-msvideo"},
+    ".wmv": {"mime": "video/x-ms-wmv"},
+    ".ogg": {"mime": "video/ogg"},
 }
+
 
 class TTSRequest(BaseModel):
     sentence: str
@@ -75,7 +74,9 @@ def convert_to_mp3(filename, delete=True):
     ffmpeg -i input.wav -vn -ar 44100 -ac 2 -b:a 192k output.mp3
     """
     output = filename.replace(".wav", ".mp3")
-    command = f"ffmpeg -hwaccel cuda -y -i {filename} -vn -ar 44100 -ac 2 -b:a 192k {output}"
+    command = (
+        f"ffmpeg -hwaccel cuda -y -i {filename} -vn -ar 44100 -ac 2 -b:a 192k {output}"
+    )
     log.info(f"Executing `{command}`")
     try:
         process = subprocess.Popen(command.split(" "))
@@ -88,15 +89,10 @@ def convert_to_mp3(filename, delete=True):
 
 
 def clean_input(sentence):
-    return sentence.replace("\"", "").replace("'", "").replace("\n", "")
+    return sentence.replace('"', "").replace("'", "").replace("\n", "")
 
 
-subtitles_ids = {
-    '.en': 'eng',
-    '.fr': 'fra',
-    '.zh': 'chi',
-    '.sp': 'spa'
-}
+subtitles_ids = {".en": "eng", ".fr": "fra", ".zh": "chi", ".sp": "spa"}
 
 
 def get_subtitles_language(subtitles_file):
@@ -123,7 +119,7 @@ def embed_subtitles(video_file, subtitles_file, output_video_file):
 async def create_upload_file(file: UploadFile, language: str = ""):
     temp_file = f"/app/tts/input/input_{ObjectId()}_{file.filename}"
 
-    async with aiofiles.open(temp_file, 'wb') as out_file:
+    async with aiofiles.open(temp_file, "wb") as out_file:
         content = await file.read()
         await out_file.write(content)
 
@@ -139,12 +135,12 @@ async def create_upload_file(file: UploadFile, language: str = ""):
 async def transcribe_file(file: UploadFile, language: str = ""):
     temp_file = f"/app/tts/input/input_{ObjectId()}_{file.filename}"
 
-    async with aiofiles.open(temp_file, 'wb') as out_file:
+    async with aiofiles.open(temp_file, "wb") as out_file:
         content = await file.read()
         await out_file.write(content)
 
     language_code = stt_language.get(language) if language else None
-    result = STT_MODEL.transcribe(temp_file, language=language_code, task='translate')
+    result = STT_MODEL.transcribe(temp_file, language=language_code, task="translate")
 
     if not debug:
         os.remove(temp_file)
@@ -158,15 +154,17 @@ def readPost(query: TTSRequest):
     """
     output_wav = f"/app/tts/output/output_{ObjectId()}.wav"
     sentence = clean_input(query.sentence)
-    language = 'en'
-    if hasattr(query, 'language'):
+    language = "en"
+    if hasattr(query, "language"):
         language = query.language
     log.debug(f"Requested to voice: `{sentence}`")
 
     if query.model != "kokoro-82M":
         log.error(f"only kokoro TTS engine is supported")
-        if query.language != 'en':
-            raise HTTPException(status_code=400, detail="Only kokoro TTS engine is supported.")
+        if query.language != "en":
+            raise HTTPException(
+                status_code=400, detail="Only kokoro TTS engine is supported."
+            )
 
     text_to_audio(text=sentence, file_path=output_wav, language=language)
     output_mp3 = convert_to_mp3(output_wav)
@@ -199,7 +197,7 @@ async def get_subtitles(file: UploadFile, language: str = "", embed: bool = True
     output_video_file = f"/app/tts/output/{full_filename}{extension}"
     subtitles_file = f"/app/tts/output/{full_filename}.{language}.srt"
 
-    async with aiofiles.open(temp_file, 'wb') as out_file:
+    async with aiofiles.open(temp_file, "wb") as out_file:
         content = await file.read()
         await out_file.write(content)
 
