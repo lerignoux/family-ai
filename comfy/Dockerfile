@@ -1,5 +1,7 @@
 FROM lerignoux/base-ai-service as build
 
+ARG DEBIAN_FRONTEND=noninteractive
+RUN --mount=type=cache,target=/root/.cache/apt apt-get install -y cmake libcairo2-dev
 # setup Comfy
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git /app/ComfyUI --depth 1
 

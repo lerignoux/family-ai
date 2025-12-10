@@ -9,11 +9,14 @@ ollama/models/manifests
 ollama/__pycache__
 
 tts/input
+tts/cache
 tts/models/**/config.json
 tts/models/**/*.pth
 tts/models/**/*.onnx
 tts/voices/**/*.pt
 tts/output/*.mp3
+tts/output/*.mp4
+tts/output/*.srt
 tts/output/*.wav
 tts/__pycache__
 tts/kokoro/__pycache__
