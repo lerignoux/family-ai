@@ -13,6 +13,8 @@
     "build": "quasar build"
   },
   "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
     "@quasar/extras": "^1.16.4",
     "dotenv": "^16.4.7",
     "jspdf": "^2.5.2",

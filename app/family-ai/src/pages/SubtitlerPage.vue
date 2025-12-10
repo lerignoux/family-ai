@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { inject, ref, onMounted, watch } from 'vue';
+
 import { generateSubtitles } from '../components/api/tts';
 import { saveUserSelection, getPageSelection } from '../utils/localStorage';
 import { logger } from '../utils/logger';
+// Avoid importing ffmpeg utilities at module scope to prevent SSR issues
 
 const bus = inject<any>('bus');
 const selectedFile = ref<File | null>(null);
@@ -12,6 +14,108 @@ const processing = ref(false);
 const progressMessage = ref('');
 const downloadUrl = ref('');
 const fileName = ref('');
+const MAX_DIRECT_UPLOAD_BYTES = 20 * 1024 * 1024; // 20 MB
+
+let ffmpeg: any = null;
+let ffmpegUtils: {
+  fetchFile: (i: Blob | File | string) => Promise<Uint8Array>;
+  toBlobURL: (u: string, t: string) => Promise<string>;
+} | null = null;
+const loaded = ref(false);
+async function ensureFfmpegLoaded() {
+  if (loaded.value) return;
+  try {
+    progressMessage.value = 'Loading media tools...';
+    console.log('Loading media tools...');
+    if (typeof window === 'undefined') {
+      // Avoid throwing during SSR/pre-render; quietly skip loading
+      return;
+    }
+    if (!ffmpeg) {
+      const mod = await import('@ffmpeg/ffmpeg');
+      const FFmpegCtor = (mod as any).FFmpeg;
+      ffmpeg = new FFmpegCtor();
+      // Optional: ffmpeg.on('log', ({ message }: { message: string }) => console.log('[ffmpeg]', message));
+    }
+    if (!ffmpegUtils) {
+      const utilMod = await import('@ffmpeg/util');
+      ffmpegUtils = {
+        fetchFile: utilMod.fetchFile,
+        toBlobURL: utilMod.toBlobURL,
+      };
+    }
+    // Load FFmpeg core from local public assets and use a dedicated local worker
+    const baseURL = '/ffmpeg';
+
+    const coreURL = await ffmpegUtils.toBlobURL(
+      `${baseURL}/ffmpeg-core.js`,
+      'text/javascript'
+    );
+    const wasmURL = await ffmpegUtils.toBlobURL(
+      `${baseURL}/ffmpeg-core.wasm`,
+      'application/wasm'
+    );
+    const workerURL = await ffmpegUtils.toBlobURL(
+      `${baseURL}/worker.js`,
+      'text/javascript'
+    );
+    console.log('ffmpeg loading');
+    await ffmpeg.load({ coreURL, wasmURL, workerURL });
+    console.log('ffmpeg loaded');
+    loaded.value = true;
+  } catch (e) {
+    console.log('ffmpeg not loaded');
+    console.error('Failed to load ffmpeg:', e);
+    progressMessage.value = 'Failed to load media tools';
+    bus.emit('show-notification', {
+      type: 'negative',
+      message:
+        'Failed to load media tools. Please check your connection and try again.',
+      timeout: 5000,
+    });
+    throw e;
+  }
+}
+
+async function extractAudioMp3(inputFile: File): Promise<File> {
+  console.log('Extracting audio from video...');
+  await ensureFfmpegLoaded();
+
+  console.log('ffmpeg loaded');
+  const baseName =
+    inputFile.name.substring(0, inputFile.name.lastIndexOf('.')) ||
+    inputFile.name;
+  const inputName = 'input_video';
+  const outputName = 'output_audio.mp3';
+
+  // Write the input file into ffmpeg FS
+  if (!ffmpegUtils) {
+    const utilMod = await import('@ffmpeg/util');
+    ffmpegUtils = {
+      fetchFile: utilMod.fetchFile,
+      toBlobURL: utilMod.toBlobURL,
+    };
+  }
+  await ffmpeg.writeFile(inputName, await ffmpegUtils.fetchFile(inputFile));
+
+  // -vn: no video, -acodec libmp3lame to mp3, bitrate 192k (tweakable)
+  await ffmpeg.exec([
+    '-i',
+    inputName,
+    '-vn',
+    '-acodec',
+    'libmp3lame',
+    '-b:a',
+    '192k',
+    outputName,
+  ]);
+
+  const data = (await ffmpeg.readFile(outputName)) as Uint8Array;
+  const copy = new Uint8Array(data.length);
+  copy.set(data);
+  const blob = new Blob([copy.buffer as ArrayBuffer], { type: 'audio/mpeg' });
+  return new File([blob], `${baseName}.mp3`, { type: 'audio/mpeg' });
+}
 
 const languages = ref([
   { label: 'English', value: 'en' },
@@ -71,7 +175,9 @@ function handleFileSelect(file: File | null) {
     fileName.value = '';
     bus.emit('show-notification', {
       type: 'negative',
-      message: `Unsupported file type. Supported types: ${supportedVideoTypes.join(', ')}`,
+      message: `Unsupported file type. Supported types: ${supportedVideoTypes.join(
+        ', '
+      )}`,
       timeout: 5000,
     });
   }
@@ -89,16 +195,27 @@ async function generateSubtitlesForVideo() {
 
   try {
     processing.value = true;
-    progressMessage.value = 'Processing video and generating subtitles...';
+    progressMessage.value = 'Preparing media...';
 
     logger.debug(
       `Generating subtitles for ${selectedFile.value.name} in ${language.value.label}`
     );
 
+    // Decide whether to convert to audio-only based on size
+    let uploadFile: File = selectedFile.value;
+    let effectiveEmbed = embedSubtitles.value;
+    if (selectedFile.value.size > MAX_DIRECT_UPLOAD_BYTES) {
+      progressMessage.value = 'Extracting audio from video (mp3)...';
+      uploadFile = await extractAudioMp3(selectedFile.value);
+      // When sending audio-only, disable embedding on server side
+      effectiveEmbed = false;
+    }
+
+    progressMessage.value = 'Uploading and generating subtitles...';
     const result = await generateSubtitles(
-      selectedFile.value,
+      uploadFile,
       language.value.value,
-      embedSubtitles.value
+      effectiveEmbed
     );
 
     // Create download URL
@@ -109,7 +226,7 @@ async function generateSubtitlesForVideo() {
     downloadUrl.value = URL.createObjectURL(result);
 
     // Determine file extension based on embed option
-    const originalName = selectedFile.value.name;
+    const originalName = uploadFile.name;
     const nameWithoutExt = originalName.substring(
       0,
       originalName.lastIndexOf('.')

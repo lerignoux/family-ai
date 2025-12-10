@@ -78,7 +78,27 @@ module.exports = configure(function (/* ctx */) {
       // polyfillModulePreload: true,
       // distDir
 
-      // extendViteConf (viteConf) {},
+      extendViteConf(viteConf) {
+        // Avoid pre-bundling/optimization of ffmpeg packages which can break worker/core resolution
+        viteConf.optimizeDeps = viteConf.optimizeDeps || {};
+        const excluded = new Set([
+          ...(viteConf.optimizeDeps.exclude || []),
+          '@ffmpeg/ffmpeg',
+          '@ffmpeg/util',
+          '@ffmpeg/core',
+          '@ffmpeg/core-mt',
+          '@ffmpeg/core-st',
+        ]);
+        viteConf.optimizeDeps.exclude = Array.from(excluded);
+
+        // Ensure wasm treated as asset when imported (not strictly needed for public/ usage)
+        // but harmless if present
+        const assetsInclude = (viteConf.assetsInclude || []);
+        if (!assetsInclude.includes('**/*.wasm')) {
+          assetsInclude.push('**/*.wasm');
+        }
+        viteConf.assetsInclude = assetsInclude;
+      },
       // viteVuePluginOptions: {},
 
       vitePlugins: [
