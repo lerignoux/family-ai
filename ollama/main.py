@@ -1,18 +1,16 @@
 import asyncio
 import logging
 import os
-import requests
 import sys
 import uuid
-
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
-
-from langchain_ollama import ChatOllama
-from langchain_mistralai import ChatMistralAI
-from pydantic import BaseModel
 from typing import Dict
 
+import requests
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from langchain_mistralai import ChatMistralAI
+from langchain_ollama import ChatOllama
+from pydantic import BaseModel
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 log = logging.getLogger(__name__)
@@ -30,6 +28,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 class Chat(BaseModel):
     prompt: str
     model: str
@@ -37,10 +36,10 @@ class Chat(BaseModel):
 
 
 class Story(BaseModel):
-    subject: str=""
-    model: str=""
-    stream: bool=False
-    chapter_count: int=3
+    subject: str = ""
+    model: str = ""
+    stream: bool = False
+    chapter_count: int = 3
 
 
 def read_secret(name):
@@ -50,18 +49,25 @@ def read_secret(name):
 
 BASE_URL = "http://ollama:11434"
 
-current_model="llama3.2"
-llm_handler = ChatOllama(model=current_model, base_url=BASE_URL, temperature=0, timeout=300)
+current_model = "llama3.2"
+llm_handler = ChatOllama(
+    model=current_model, base_url=BASE_URL, temperature=0, timeout=300
+)
 
 custom_llm_handlers = {
-    'mistral-large-latest': ChatMistralAI(api_key=read_secret("mistral_api_key"), model="mistral-large-latest")
+    "mistral-large-latest": ChatMistralAI(
+        api_key=read_secret("mistral_api_key"), model="mistral-large-latest"
+    )
 }
+
 
 def get_default_llm_handler(model):
     global current_model
     global llm_handler
     if model != current_model:
-        llm_handler = ChatOllama(model="llama3.2", base_url=BASE_URL, temperature=0, timeout=300)
+        llm_handler = ChatOllama(
+            model="llama3.2", base_url=BASE_URL, temperature=0, timeout=300
+        )
     return llm_handler
 
 
@@ -88,6 +94,7 @@ def chat(chat: Chat):
 # Store for ongoing story generations
 active_stories: Dict[str, dict] = {}
 
+
 @app.post("/ollama/story")
 async def start_story(story: Story):
     """
@@ -102,7 +109,7 @@ async def start_story(story: Story):
         "current_chapter": 0,
         "chapters": {},
         "title": None,
-        "summary": None
+        "summary": None,
     }
 
     # Start the story generation process
@@ -131,7 +138,7 @@ async def generate_story(story_id: str, story: Story):
                 "summary": {
                     "type": "string",
                     "description": "A brief summary of the story's plot and main events.",
-                }
+                },
             },
             "required": ["title", "summary"],
         }
@@ -141,7 +148,7 @@ async def generate_story(story_id: str, story: Story):
             chapter_name = f"chapter_{chapter_index}"
             story_schema["properties"][chapter_name] = {
                 "type": "string",
-                "description": f"The content of chapter {chapter_index + 1}"
+                "description": f"The content of chapter {chapter_index + 1}",
             }
             story_schema["required"].append(chapter_name)
 
@@ -154,11 +161,13 @@ async def generate_story(story_id: str, story: Story):
         )
 
         # Update story state with initial structure
-        active_stories[story_id].update({
-            "title": initial_story["title"],
-            "summary": initial_story["summary"],
-            "status": "generating_chapters"
-        })
+        active_stories[story_id].update(
+            {
+                "title": initial_story["title"],
+                "summary": initial_story["summary"],
+                "status": "generating_chapters",
+            }
+        )
 
         # Second pass: Polish each chapter
         for chapter_index in range(story.chapter_count):
@@ -171,16 +180,18 @@ async def generate_story(story_id: str, story: Story):
             Keep the same main events but add more descriptive language, dialogue, and emotional depth.
             Make it suitable for children while being interesting and educational.
 
-            Chapter {chapter_index + 1} of "{initial_story['title']}":
+            Chapter {chapter_index + 1} of "{initial_story["title"]}":
             {chapter_content}
 
             Story summary for context:
-            {initial_story['summary']}
+            {initial_story["summary"]}
             """
 
             # Get the polished version
             polished_chapter = await llm.ainvoke(polish_prompt)
-            active_stories[story_id]["chapters"][f"chapter {chapter_index}"] = polished_chapter.content
+            active_stories[story_id]["chapters"][f"chapter {chapter_index}"] = (
+                polished_chapter.content
+            )
             active_stories[story_id]["current_chapter"] = chapter_index + 1
 
         # Mark story as complete
@@ -189,6 +200,7 @@ async def generate_story(story_id: str, story: Story):
     except Exception as e:
         active_stories[story_id]["status"] = "error"
         active_stories[story_id]["error"] = str(e)
+
 
 @app.websocket("/ollama/ws/story/{story_id}")
 async def websocket_endpoint(websocket: WebSocket, story_id: str):
@@ -201,7 +213,9 @@ async def websocket_endpoint(websocket: WebSocket, story_id: str):
     try:
         while True:
             if story_id not in active_stories:
-                await websocket.send_json({"status": "error", "message": "Story not found"})
+                await websocket.send_json(
+                    {"status": "error", "message": "Story not found"}
+                )
                 break
 
             story_state = active_stories[story_id]
@@ -211,7 +225,10 @@ async def websocket_endpoint(websocket: WebSocket, story_id: str):
                 last_status = story_state["status"]
                 last_chapter = story_state.get("current_chapter")
             elif story_state["status"] == "generating_chapters":
-                if last_chapter is None or last_chapter != story_state["current_chapter"]:
+                if (
+                    last_chapter is None
+                    or last_chapter != story_state["current_chapter"]
+                ):
                     log.info(f"Sending story state {story_state}")
                     await websocket.send_json(story_state)
                     last_chapter = story_state["current_chapter"]
@@ -233,23 +250,35 @@ def models():
     List the currently available models on the llm.
     """
     model_list = [
-            {'name': "Mistral Lage", 'value': 'mistral-large-latest', "description":"European Mistral model, non free.", 'type': 'api'}
+        {
+            "name": "Mistral Lage",
+            "value": "mistral-large-latest",
+            "description": "European Mistral model, non free.",
+            "type": "api",
+        }
     ]
 
     response = requests.get(f"{BASE_URL}/api/tags")
+    if not response.ok:
+        raise Exception(
+            f"Failed fetching model list from Ollama: {response.status_code}:{response.text}"
+        )
+
     model_data = response.json()
-    for model in model_data.get('models', []):
-        model_name = model['name']
+    for model in model_data.get("models", []):
+        model_name = model["name"]
         try:
-          model_name = model['name'].split(':')[0]
+            model_name = model["name"].split(":")[0]
         except KeyError:
             pass
-        model_name = model_name.replace('-', ' ' ).title()
-        model_list.append({
-            'name': model_name,
-            'value': model['model'],
-            'description': f"{model['model']} \"open source\" model hosted locally.",
-            'type': 'local',
-        })
+        model_name = model_name.replace("-", " ").title()
+        model_list.append(
+            {
+                "name": model_name,
+                "value": model["model"],
+                "description": f'{model["model"]} "open source" model hosted locally.',
+                "type": "local",
+            }
+        )
 
     return model_list
