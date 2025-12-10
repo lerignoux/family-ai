@@ -23,7 +23,7 @@ debug = os.getenv("DEBUG", "").lower() in ["1", "true"]
 
 app = FastAPI()
 
-origins = ["http://localhost", "https://localhost"]
+origins = ["http://localhost", "http://localhost:9000", "https://localhost"]
 if "HOST" in os.environ:
     origins.append(f"{os.environ['HOST']}")
 app.add_middleware(

@@ -19,8 +19,8 @@ log = logging.getLogger(__name__)
 
 app = FastAPI()
 
-origins = ["http://localhost", "https://localhost"]
-if 'HOST' in os.environ:
+origins = ["http://localhost", "http://localhost:9000", "https://localhost"]
+if "HOST" in os.environ:
     origins.append(f"{os.environ['HOST']}")
 app.add_middleware(
     CORSMiddleware,
