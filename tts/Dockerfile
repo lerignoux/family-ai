@@ -8,4 +8,4 @@ COPY . /app/tts
 
 RUN --mount=type=cache,target=/root/.cache/uv uv pip install -r /app/tts/requirements.txt
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80", "--reload"]
