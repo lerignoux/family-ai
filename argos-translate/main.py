@@ -3,12 +3,13 @@ import json
 import logging
 import os
 import sys
+from pathlib import Path
 
 import aiofiles
 import argostranslate.package
 import argostranslate.translate
 import requests
-import torch
+import srt
 from bson import ObjectId
 from fastapi import FastAPI, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -56,6 +57,16 @@ for from_code in languages:
             )
 
 
+output_directory = Path("/argos-translate/output")
+output_directory.mkdir(parents=True, exist_ok=True)
+input_directory = Path("/argos-translate/output")
+input_directory.mkdir(parents=True, exist_ok=True)
+
+# Create the directory and any necessary parent directories
+# exist_ok=True prevents an error if the directory already exists
+# parents=True creates any missing parent directories
+
+
 @app.post("/translate")
 def translate(sentence: str, from_code="en", to_code="fr"):
     """
@@ -63,6 +74,28 @@ def translate(sentence: str, from_code="en", to_code="fr"):
     """
     translatedText = argostranslate.translate.translate(sentence, from_code, to_code)
     return {"result": translatedText}
+
+
+@app.post("/translate_subtitles")
+async def translate_subtitles(file: UploadFile, from_code="en", to_code="fr"):
+    """
+    Process the given input subtitles file into the given language.
+    """
+    str_content = await file.read()
+    log.info(str_content)
+    subtitle_generator = srt.parse(str_content.decode("utf-8"))
+    subtitles_data = list(subtitle_generator)
+    for sub in subtitles_data:
+        sub.content = argostranslate.translate.translate(
+            sub.content, from_code, to_code
+        )
+        log.info(f"Translated sub: {sub.content}")
+
+    temp_file = f"/argos-translate/output/output_{ObjectId()}_{file.filename}"
+    with open(temp_file, "wb") as f:
+        f.write(srt.compose(subtitles_data).encode("utf-8"))
+
+    return FileResponse(temp_file, media_type="text")
 
 
 @app.websocket("/translate_text_stream")
@@ -139,7 +172,7 @@ async def translate_text_stream(websocket: WebSocket):
                 "model": "kokoro-82M",
                 "language": to_code,
             }
-            response = requests.post("http://192.168.2.10:8186/tts", json=post_data)
+            response = requests.post("http://tts/tts", json=post_data)
 
             if response.status_code != 200:
                 raise Exception(f"TTS failed with status {response.status_code}")
@@ -211,7 +244,7 @@ async def translate_audio(file: UploadFile, from_code="en", to_code="fr"):
     )
 
     post_data = {"sentence": translatedText, "model": "kokoro-82M", "language": to_code}
-    response = requests.post("http://192.168.2.10:8186/tts", json=post_data)
+    response = requests.post("http://tts/tts", json=post_data)
     if response.status_code == 200:
         temp_file = f"/argos-translate/output/output_{ObjectId()}_{file.filename}"
         with open(temp_file, "wb") as f:
@@ -254,9 +287,7 @@ async def translate_audio_stream(websocket: WebSocket):
 
         # Speech to Text
         multipart_form_data = {"file": audio_blob, "language": from_code}
-        response = requests.post(
-            "http://192.168.2.10:8186/stt", files=multipart_form_data
-        )
+        response = requests.post("http://tts/stt", files=multipart_form_data)
 
         if response.status_code != 200:
             raise Exception(f"STT failed with status {response.status_code}")
@@ -299,7 +330,7 @@ async def translate_audio_stream(websocket: WebSocket):
             "model": "kokoro-82M",
             "language": to_code,
         }
-        response = requests.post("http://192.168.2.10:8186/tts", json=post_data)
+        response = requests.post("http://tts/tts", json=post_data)
 
         if response.status_code != 200:
             raise Exception(f"TTS failed with status {response.status_code}")

@@ -6,6 +6,7 @@ from time import sleep
 from typing import Annotated, Union
 
 import aiofiles
+import requests
 import whisper
 import whisper_timestamped
 from bson import ObjectId
@@ -195,6 +196,7 @@ async def get_subtitles(file: UploadFile, language: str = "", embed: bool = True
     full_filename = f"{ObjectId()}_{filename}"
     temp_file = f"/app/tts/input/{full_filename}{extension}"
     output_video_file = f"/app/tts/output/{full_filename}{extension}"
+    subtitles_file_en = f"/app/tts/output/{full_filename}.en.srt"
     subtitles_file = f"/app/tts/output/{full_filename}.{language}.srt"
 
     async with aiofiles.open(temp_file, "wb") as out_file:
@@ -203,11 +205,26 @@ async def get_subtitles(file: UploadFile, language: str = "", embed: bool = True
 
     audio = whisper_timestamped.load_audio(temp_file)
     model = whisper_timestamped.load_model("openai/whisper-large-v2", device="cuda")
-    result = whisper_timestamped.transcribe(model, audio, language=language)
+    result = whisper_timestamped.transcribe(
+        model, audio, language="en", task="translate"
+    )
 
     segments = result["segments"]
-    with open(subtitles_file, "w", encoding="utf-8") as f:
+    with open(subtitles_file_en, "w", encoding="utf-8") as f:
         write_srt(segments, file=f)
+
+    if language != "en":
+        with open(subtitles_file_en, "rb") as f:
+            files = {"file": f}
+            response = requests.post(
+                "http://argos-translate/translate_subtitles", files=files
+            )
+        if response.status_code != 200:
+            raise HTTPException(status_code=500, detail="Failed translating subtitles.")
+
+        with open(subtitles_file, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
 
     if embed and extension in videos_types.keys():
         subtitled_file = embed_subtitles(temp_file, subtitles_file, output_video_file)
