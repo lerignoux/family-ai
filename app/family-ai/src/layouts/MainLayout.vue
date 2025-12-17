@@ -101,12 +101,6 @@ const refLinksList: ExternalLinkProps[] = [
     link: 'https://docs.comfy.org',
   },
   {
-    title: 'CoquiTTS',
-    caption: 'docs.coqui.ai',
-    icon: 'img:icons/coquitts.png',
-    link: 'https://docs.coqui.ai/en/dev/models/xtts.html',
-  },
-  {
     title: 'Kokoro-82M',
     caption: 'huggingface.co/hexgrad/Kokoro-82M',
     icon: 'img:icons/hexgrad.png',
