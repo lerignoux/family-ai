@@ -26,7 +26,8 @@ open [http://localhost:9000](http://localhost:9000)
 The personal assistant web app. built using Quasar.
 
 ### Application build:
-To build the app for proper serving:
+Setup the right data in `app/family-ai/.env`  
+Build the app:
 ```bash
 docker compose exec -it app quasar build
 ```
