@@ -72,7 +72,7 @@ async function handleUserQuery(query: string) {
   logger.warn(`Asking ${model.value} Ai for ${query}.`);
   chat.value.push({
     name: 'user',
-    avatar: 'https://cdn.quasar.dev/img/avatar2.jpg',
+    avatar: 'src/assets/assistant_head_small_blue.png',
     stamp: 'Now',
     text: [query],
     status: 'sending',
