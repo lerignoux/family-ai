@@ -92,7 +92,11 @@ const generateIllustration = async (chapter: number, content: string) => {
   loading.value += 1;
   try {
     const prompt = `Create an illustration for the following chapter:\n\n${content}`;
-    const result = await textToImage(prompt, modelIllustration.value.value);
+    const result = await textToImage(
+      prompt,
+      modelIllustration.value.value,
+      'simple'
+    );
     if (result instanceof Blob) {
       const reader = new FileReader();
       reader.onload = () => {

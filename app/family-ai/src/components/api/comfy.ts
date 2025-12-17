@@ -44,7 +44,7 @@ export async function getAvailableModels(): Promise<ComfyModel[]> {
 export async function textToImage(
   prompt: string,
   model: string,
-  template = 'z_image_turbo.json'
+  template = 'z_image_turbo'
 ) {
   logger.info(`Requested image generation for: "${prompt}"`);
   const workflowTemplate = await import(`./comfy/workflows/${template}.json`);
