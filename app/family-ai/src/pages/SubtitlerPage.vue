@@ -22,6 +22,7 @@ const languages = ref([
 ]);
 
 const supportedVideoTypes = [
+  '.mp3',
   '.mp4',
   '.avi',
   '.mov',
@@ -71,7 +72,9 @@ function handleFileSelect(file: File | null) {
     fileName.value = '';
     bus.emit('show-notification', {
       type: 'negative',
-      message: `Unsupported file type. Supported types: ${supportedVideoTypes.join(', ')}`,
+      message: `Unsupported file type. Supported types: ${supportedVideoTypes.join(
+        ', '
+      )}`,
       timeout: 5000,
     });
   }
@@ -194,10 +197,10 @@ function clearFile() {
         <q-file
           v-model="selectedFile"
           @update:model-value="handleFileSelect"
-          label="Select video file"
+          label="Select video/audio file"
           filled
           dark
-          accept="video/*"
+          accept="*"
           :disable="processing"
         >
           <template v-slot:prepend>
