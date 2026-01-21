@@ -45,4 +45,4 @@ services:
               capabilities: [gpu]
 
 networks:
-  personal-ai:
+  family-ai:

@@ -190,7 +190,7 @@ def read_item():
 
 
 @app.post("/stt/subtitles")
-async def get_subtitles(file: UploadFile, language: str = "", embed: bool = True):
+async def get_subtitles(file: UploadFile, language: str | None = None, embed: bool = True):
     log.info(f"Requested subtitles in {language}.")
     filename, extension = os.path.splitext(file.filename)
     full_filename = f"{ObjectId()}_{filename}"
@@ -206,14 +206,14 @@ async def get_subtitles(file: UploadFile, language: str = "", embed: bool = True
     audio = whisper_timestamped.load_audio(temp_file)
     model = whisper_timestamped.load_model("openai/whisper-large-v2", device="cuda")
     result = whisper_timestamped.transcribe(
-        model, audio, language="en", task="translate"
+        model, audio, task="translate"
     )
 
     segments = result["segments"]
     with open(subtitles_file_en, "w", encoding="utf-8") as f:
         write_srt(segments, file=f)
 
-    if language != "en":
+    if language != 'en':
         with open(subtitles_file_en, "rb") as f:
             files = {"file": f}
             response = requests.post(
