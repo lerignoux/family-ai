@@ -116,6 +116,17 @@ def embed_subtitles(video_file, subtitles_file, output_video_file):
     return output_video_file
 
 
+def burn_subtitles(video_file, subtitles_file, output_video_file):
+    command = f"ffmpeg -i {video_file} -vf subtitles={subtitles_file} -map 0:v -map 0:a -c:a copy {output_video_file}"
+    log.info(f"Executing `{command}`")
+    try:
+        subprocess.run(command.split(" "), check=True)
+        log.debug("FFmpeg subtitles burning executed successfully.")
+    except subprocess.CalledProcessError as e:
+        raise Exception(f"Error burning subtitles in input video: {e}")
+    return output_video_file
+
+
 @app.post("/stt")
 async def create_upload_file(file: UploadFile, language: str = ""):
     temp_file = f"/app/tts/input/input_{ObjectId()}_{file.filename}"
@@ -190,7 +201,7 @@ def read_item():
 
 
 @app.post("/stt/subtitles")
-async def get_subtitles(file: UploadFile, language: str | None = None, embed: bool = True):
+async def get_subtitles(file: UploadFile, language: str | None = None, integration: str | None = None):
     log.info(f"Requested subtitles in {language}.")
     filename, extension = os.path.splitext(file.filename)
     full_filename = f"{ObjectId()}_{filename}"
@@ -226,8 +237,14 @@ async def get_subtitles(file: UploadFile, language: str | None = None, embed: bo
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
 
-    if embed and extension in videos_types.keys():
-        subtitled_file = embed_subtitles(temp_file, subtitles_file, output_video_file)
+    if integration is not None and extension in videos_types.keys():
+        subtitled_file = None
+        if integration == 'embed':
+            subtitled_file = embed_subtitles(temp_file, subtitles_file, output_video_file)
+        elif integration == 'burn':
+            subtitled_file = burn_subtitles(temp_file, subtitles_file, output_video_file)
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported subtitles integration: {integration}.")
         return FileResponse(subtitled_file)
     else:
         return FileResponse(subtitles_file, media_type="text")

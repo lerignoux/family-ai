@@ -68,7 +68,7 @@ export async function speechToText(blob: Blob, language = null) {
 export async function generateSubtitles(
   file: File,
   language: string,
-  embed = true
+  integration: string | null = null
 ) {
   logger.debug(
     `Requested subtitles for video file: ${file.name} in language: ${language}`
@@ -77,12 +77,12 @@ export async function generateSubtitles(
   const formData = new FormData();
   formData.append('file', file);
   formData.append('language', language);
-  formData.append('embed', embed.toString());
+  if (integration !== null) formData.append('integration', integration);
 
   const params = new URLSearchParams({
     language: language,
-    embed: `${embed}`,
   }).toString();
+  if (integration !== null) params.append('integration', integration);
 
   const requestOptions = {
     method: 'POST',

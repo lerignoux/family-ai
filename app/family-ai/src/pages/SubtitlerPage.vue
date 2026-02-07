@@ -7,7 +7,7 @@ import { logger } from '../utils/logger';
 const bus = inject<any>('bus');
 const selectedFile = ref<File | null>(null);
 const language = ref({ label: 'English', value: 'en' });
-const embedSubtitles = ref(true);
+const integration = ref({ label: 'Embed Subtitles', value: 'embed' });
 const processing = ref(false);
 const progressMessage = ref('');
 const downloadUrl = ref('');
@@ -32,14 +32,19 @@ const supportedVideoTypes = [
   '.ogg',
 ];
 
+const integrationOptions = [
+  { label: 'None (SRT only)', value: 'none' },
+  { label: 'Embed Subtitles', value: 'embed' },
+  { label: 'Burn Subtitles (Slower)', value: 'burn' },
+];
+
 onMounted(() => {
-  // Load saved language selection
   const savedSelections = getPageSelection('subtitler');
-  if (savedSelections.language) {
-    language.value = savedSelections.language;
-  }
-  if (savedSelections.embedSubtitles !== undefined) {
-    embedSubtitles.value = savedSelections.embedSubtitles;
+
+  if (savedSelections.language) language.value = savedSelections.language;
+
+  if (savedSelections.integration) {
+    integration.value = savedSelections.integration;
   }
 });
 
@@ -50,8 +55,8 @@ watch(language, (newLanguage) => {
   }
 });
 
-watch(embedSubtitles, (newValue) => {
-  saveUserSelection('subtitler', 'embedSubtitles', newValue);
+watch(integration, (newVal) => {
+  saveUserSelection('subtitler', 'integration', newVal);
 });
 
 function handleFileSelect(file: File | null) {
@@ -101,7 +106,7 @@ async function generateSubtitlesForVideo() {
     const result = await generateSubtitles(
       selectedFile.value,
       language.value.value,
-      embedSubtitles.value
+      integration.value.value === 'none' ? null : integration.value.value
     );
 
     // Create download URL
@@ -117,7 +122,8 @@ async function generateSubtitlesForVideo() {
       0,
       originalName.lastIndexOf('.')
     );
-    const extension = embedSubtitles.value
+    const isVideoOutput = integration.value.value !== 'none';
+    const extension = isVideoOutput
       ? originalName.substring(originalName.lastIndexOf('.'))
       : '.srt';
     fileName.value = `${nameWithoutExt}_subtitles${extension}`;
@@ -183,12 +189,17 @@ function clearFile() {
       </div>
 
       <div class="col-grow-xs col-md">
-        <q-toggle
-          v-model="embedSubtitles"
-          label="Embed subtitles in video"
-          color="primary"
+        <q-select
+          standout="bg-grey-9 text-white"
           dark
-        />
+          v-model="integration"
+          :options="integrationOptions"
+          label="Subtitle Integration:"
+        >
+          <template v-slot:append>
+            <q-avatar icon="mdi-layers-outline" text-color="white" />
+          </template>
+        </q-select>
       </div>
     </div>
 
