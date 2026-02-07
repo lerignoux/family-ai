@@ -79,9 +79,7 @@ export async function generateSubtitles(
   formData.append('language', language);
   if (integration !== null) formData.append('integration', integration);
 
-  const params = new URLSearchParams({
-    language: language,
-  }).toString();
+  const params = new URLSearchParams({ language: language });
   if (integration !== null) params.append('integration', integration);
 
   const requestOptions = {
@@ -90,7 +88,9 @@ export async function generateSubtitles(
   };
 
   const rawResponse = await fetch(
-    `${process.env.API_SCHEME}://${process.env.API_URL}:${process.env.TTS_PORT}/stt/subtitles?${params}`,
+    `${process.env.API_SCHEME}://${process.env.API_URL}:${
+      process.env.TTS_PORT
+    }/stt/subtitles?${params.toString()}`,
     requestOptions
   );
 
