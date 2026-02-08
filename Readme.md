@@ -92,6 +92,9 @@ see `docker-compose.override.tpl.yml` for example:
 cp docker-compose.override.tpl.yml docker-compose.override.yml
 ```
 
+## Offline generation
+By default huggingface will download models on demand. This can be avoided later by setting `HF_HUB_OFFLINE=1` as environment vairable in your `docker-compose.override.yml` for instance.
+
 ## Contributions:
 * Contributions and bugs are welcome, please follow the standard open source procedure.
 

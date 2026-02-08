@@ -25,6 +25,8 @@ services:
             - driver: nvidia
               device_ids: ["1"]
               capabilities: [gpu]
+    environment:
+      - HF_HUB_OFFLINE=0
 
   argos-translate:
     deploy:
