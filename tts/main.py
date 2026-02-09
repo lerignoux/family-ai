@@ -4,13 +4,14 @@ import subprocess
 import sys
 from time import sleep
 from typing import Annotated, Union
+import uuid
 
 import aiofiles
 import requests
 import whisper
 import whisper_timestamped
 from bson import ObjectId
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from kokoro_tts import text_to_audio
@@ -23,6 +24,8 @@ log = logging.getLogger(__name__)
 debug = os.getenv("DEBUG", "").lower() in ["1", "true"]
 
 app = FastAPI()
+
+tasks = {}
 
 origins = ["http://localhost", "http://localhost:9000", "https://localhost"]
 if "HOST" in os.environ:
@@ -199,52 +202,71 @@ def read_item():
     """
     return [{"hexgrad/Kokoro-82M": True}]
 
+def process_subtitling_task(task_id: str, temp_file: str, language: str, integration: str, extension: str):
+    """The heavy Whisper and FFmpeg processing logic."""
+    try:
+        filename_base = os.path.splitext(os.path.basename(temp_file))[0]
+        output_video_file = f"/app/tts/output/{filename_base}{extension}"
+        subtitles_file_en = f"/app/tts/output/{filename_base}.en.srt"
+        subtitles_file = f"/app/tts/output/{filename_base}.{language}.srt"
+
+        # 1. Whisper Transcription (Heavy CUDA Task)
+        audio = whisper_timestamped.load_audio(temp_file)
+        model = whisper_timestamped.load_model("openai/whisper-large-v2", device="cuda")
+        result = whisper_timestamped.transcribe(model, audio, task="translate")
+
+        with open(subtitles_file_en, "w", encoding="utf-8") as f:
+            write_srt(result["segments"], file=f)
+
+        # 2. Translation logic (Argos)
+        target_file = subtitles_file_en
+        if language != 'en':
+            with open(subtitles_file_en, "rb") as f:
+                response = requests.post("http://argos-translate/translate_subtitles", files={"file": f})
+            if response.status_code == 200:
+                with open(subtitles_file, "wb") as f:
+                    f.write(response.content)
+                target_file = subtitles_file
+            else:
+                raise Exception("Translation failed")
+
+        # 3. Integration logic (Embed/Burn)
+        final_path = target_file
+        if integration and extension in videos_types:
+            if integration == 'embed':
+                final_path = embed_subtitles(temp_file, target_file, output_video_file)
+            elif integration == 'burn':
+                final_path = burn_subtitles(temp_file, target_file, output_video_file)
+
+        # Mark as completed
+        tasks[task_id] = {"status": "completed", "file_path": final_path}
+
+    except Exception as e:
+        log.error(f"Task {task_id} failed: {str(e)}")
+        tasks[task_id] = {"status": "failed", "error": str(e)}
 
 @app.post("/stt/subtitles")
-async def get_subtitles(file: UploadFile, language: str | None = None, integration: str | None = None):
-    log.info(f"Requested subtitles in {language}.")
-    filename, extension = os.path.splitext(file.filename)
-    full_filename = f"{ObjectId()}_{filename}"
-    temp_file = f"/app/tts/input/{full_filename}{extension}"
-    output_video_file = f"/app/tts/output/{full_filename}{extension}"
-    subtitles_file_en = f"/app/tts/output/{full_filename}.en.srt"
-    subtitles_file = f"/app/tts/output/{full_filename}.{language}.srt"
+async def get_subtitles(background_tasks: BackgroundTasks, file: UploadFile, language: str = 'en', integration: str = None):
+    task_id = str(uuid.uuid4())
+    _, extension = os.path.splitext(file.filename)
+    temp_file = f"/app/tts/input/{task_id}_{file.filename}"
 
     async with aiofiles.open(temp_file, "wb") as out_file:
         content = await file.read()
         await out_file.write(content)
 
-    audio = whisper_timestamped.load_audio(temp_file)
-    model = whisper_timestamped.load_model("openai/whisper-large-v2", device="cuda")
-    result = whisper_timestamped.transcribe(
-        model, audio, task="translate"
-    )
+    tasks[task_id] = {"status": "processing"}
+    background_tasks.add_task(process_subtitling_task, task_id, temp_file, language, integration, extension)
+    return {"task_id": task_id, "status": "accepted"}
 
-    segments = result["segments"]
-    with open(subtitles_file_en, "w", encoding="utf-8") as f:
-        write_srt(segments, file=f)
+@app.get("/stt/status/{task_id}")
+async def check_status(task_id: str):
+    task = tasks.get(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
 
-    if language != 'en':
-        with open(subtitles_file_en, "rb") as f:
-            files = {"file": f}
-            response = requests.post(
-                "http://argos-translate/translate_subtitles", files=files
-            )
-        if response.status_code != 200:
-            raise HTTPException(status_code=500, detail="Failed translating subtitles.")
+    if task["status"] == "completed":
+        # Return the file once processing is finished
+        return FileResponse(task["file_path"])
 
-        with open(subtitles_file, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
-
-    if integration is not None and extension in videos_types.keys():
-        subtitled_file = None
-        if integration == 'embed':
-            subtitled_file = embed_subtitles(temp_file, subtitles_file, output_video_file)
-        elif integration == 'burn':
-            subtitled_file = burn_subtitles(temp_file, subtitles_file, output_video_file)
-        else:
-            raise HTTPException(status_code=400, detail=f"Unsupported subtitles integration: {integration}.")
-        return FileResponse(subtitled_file)
-    else:
-        return FileResponse(subtitles_file, media_type="text")
+    return task

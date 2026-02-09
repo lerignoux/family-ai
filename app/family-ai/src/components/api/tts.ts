@@ -70,36 +70,36 @@ export async function generateSubtitles(
   language: string,
   integration: string | null = null
 ) {
-  logger.debug(
-    `Requested subtitles for video file: ${file.name} in language: ${language}`
-  );
-
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('language', language);
-  if (integration !== null) formData.append('integration', integration);
 
-  const params = new URLSearchParams({ language: language });
-  if (integration !== null) params.append('integration', integration);
+  const params = new URLSearchParams({
+    language,
+    integration: integration || '',
+  });
+  const baseUrl = `${process.env.API_SCHEME}://${process.env.API_URL}:${process.env.TTS_PORT}`;
 
-  const requestOptions = {
+  const startResponse = await fetch(`${baseUrl}/stt/subtitles?${params}`, {
     method: 'POST',
     body: formData,
-  };
+  });
+  const { task_id } = await startResponse.json();
 
-  const rawResponse = await fetch(
-    `${process.env.API_SCHEME}://${process.env.API_URL}:${
-      process.env.TTS_PORT
-    }/stt/subtitles?${params.toString()}`,
-    requestOptions
-  );
+  // 2. Polling Loop
+  while (true) {
+    const statusResponse = await fetch(`${baseUrl}/stt/status/${task_id}`);
 
-  if (!rawResponse.ok) {
-    console.log(`Failed to generate subtitles: ${rawResponse.statusText}`);
-    throw new Error(`Failed to generate subtitles: ${rawResponse.statusText}`);
+    if (
+      statusResponse.ok &&
+      statusResponse.headers.get('content-type') !== 'application/json'
+    ) {
+      return await statusResponse.blob();
+    }
+
+    const data = await statusResponse.json();
+    if (data.status === 'failed') throw new Error(data.error);
+
+    // Wait 5 seconds before next check
+    await new Promise((resolve) => setTimeout(resolve, 5000));
   }
-
-  const blobResponse = await rawResponse.blob();
-  logger.debug('Subtitles generated successfully.');
-  return blobResponse;
 }
