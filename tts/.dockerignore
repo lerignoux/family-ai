@@ -1,3 +1,5 @@
 models
 input
 output
+cache/.huggingface
+cache/whisper

@@ -95,6 +95,7 @@ export async function generateSubtitles(
   );
 
   if (!rawResponse.ok) {
+    console.log(`Failed to generate subtitles: ${rawResponse.statusText}`);
     throw new Error(`Failed to generate subtitles: ${rawResponse.statusText}`);
   }
 
