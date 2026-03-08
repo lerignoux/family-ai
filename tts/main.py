@@ -202,7 +202,7 @@ def read_item():
     """
     return [{"hexgrad/Kokoro-82M": True}]
 
-def process_subtitling_task(task_id: str, temp_file: str, language: str, integration: str, extension: str):
+async def process_subtitling_task(task_id: str, temp_file: str, language: str, integration: str, extension: str):
     """The heavy Whisper and FFmpeg processing logic."""
     try:
         filename_base = os.path.splitext(os.path.basename(temp_file))[0]

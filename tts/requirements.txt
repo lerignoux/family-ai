@@ -3,7 +3,7 @@ bson~=0.5
 fastapi~=0.110
 kokoro~=0.9
 misaki[zh]
-openai-whisper==20240930
+openai-whisper==20250625
 pydantic~=2.7
 python-multipart~=0.0
 soundfile

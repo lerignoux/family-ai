@@ -198,6 +198,7 @@ async def generate_story(story_id: str, story: Story):
         active_stories[story_id]["status"] = "complete"
 
     except Exception as e:
+        log.exception(f"Failed generating story.")
         active_stories[story_id]["status"] = "error"
         active_stories[story_id]["error"] = str(e)
 
@@ -241,6 +242,7 @@ async def websocket_endpoint(websocket: WebSocket, story_id: str):
     except WebSocketDisconnect:
         pass
     except Exception as e:
+        log.exception(f"Failed getting story {story_id} status")
         await websocket.send_json({"status": "error", "message": str(e)})
 
 

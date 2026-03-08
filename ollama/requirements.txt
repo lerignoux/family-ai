@@ -1,9 +1,9 @@
-bson~=0.5.10
-fastapi~=0.115.7
+bson~=0.5
+fastapi~=0.115
 uvicorn[standard]~=0.30
-langchain-core~=0.3.33
-langchain-community~=0.3.16
-langchain-ollama~=0.2.2
-langchain-mistralai~=0.2.5
-pydantic~=2.9.0
-requests~=2.32.3
+langchain-core~=1.2
+langchain-community~=0.4
+langchain-ollama~=1.0
+langchain-mistralai~=1.1
+pydantic~=2.9
+requests~=2.32
