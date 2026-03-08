@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import subprocess
@@ -11,7 +12,7 @@ import requests
 import whisper
 import whisper_timestamped
 from bson import ObjectId
-from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from kokoro_tts import text_to_audio
@@ -202,45 +203,70 @@ def read_item():
     """
     return [{"hexgrad/Kokoro-82M": True}]
 
-async def process_subtitling_task(task_id: str, temp_file: str, language: str, integration: str, extension: str):
-    """The heavy Whisper and FFmpeg processing logic."""
+def _run_subtitling_sync(
+    task_id: str,
+    temp_file: str,
+    language: str,
+    integration: str,
+    extension: str,
+) -> None:
+    """Sync CPU-bound work (Whisper, FFmpeg) - runs in thread to keep event loop responsive."""
+    filename_base = os.path.splitext(os.path.basename(temp_file))[0]
+    output_video_file = f"/app/tts/output/{filename_base}{extension}"
+    subtitles_file_en = f"/app/tts/output/{filename_base}.en.srt"
+    subtitles_file = f"/app/tts/output/{filename_base}.{language}.srt"
+
+    # 1. Whisper Transcription (Heavy CUDA Task)
+    audio = whisper_timestamped.load_audio(temp_file)
+    model = whisper_timestamped.load_model("openai/whisper-large-v2", device="cuda")
+    result = whisper_timestamped.transcribe(model, audio, task="translate")
+
+    with open(subtitles_file_en, "w", encoding="utf-8") as f:
+        write_srt(result["segments"], file=f)
+
+    # 2. Translation logic (Argos)
+    target_file = subtitles_file_en
+    if language != "en":
+        with open(subtitles_file_en, "rb") as f:
+            response = requests.post(
+                "http://argos-translate/translate_subtitles",
+                files={"file": f},
+                timeout=60,
+            )
+        if response.status_code == 200:
+            with open(subtitles_file, "wb") as f:
+                f.write(response.content)
+            target_file = subtitles_file
+        else:
+            raise Exception("Translation failed")
+
+    # 3. Integration logic (Embed/Burn)
+    final_path = target_file
+    if integration and extension in videos_types:
+        if integration == "embed":
+            final_path = embed_subtitles(temp_file, target_file, output_video_file)
+        elif integration == "burn":
+            final_path = burn_subtitles(temp_file, target_file, output_video_file)
+
+    tasks[task_id] = {"status": "completed", "file_path": final_path}
+
+
+async def process_subtitling_task(
+    task_id: str,
+    temp_file: str,
+    language: str,
+    integration: str,
+    extension: str,
+) -> None:
+    """Run heavy processing in thread so WebSocket can send updates (mirrors story-teller)."""
+    loop = asyncio.get_event_loop()
     try:
-        filename_base = os.path.splitext(os.path.basename(temp_file))[0]
-        output_video_file = f"/app/tts/output/{filename_base}{extension}"
-        subtitles_file_en = f"/app/tts/output/{filename_base}.en.srt"
-        subtitles_file = f"/app/tts/output/{filename_base}.{language}.srt"
-
-        # 1. Whisper Transcription (Heavy CUDA Task)
-        audio = whisper_timestamped.load_audio(temp_file)
-        model = whisper_timestamped.load_model("openai/whisper-large-v2", device="cuda")
-        result = whisper_timestamped.transcribe(model, audio, task="translate")
-
-        with open(subtitles_file_en, "w", encoding="utf-8") as f:
-            write_srt(result["segments"], file=f)
-
-        # 2. Translation logic (Argos)
-        target_file = subtitles_file_en
-        if language != 'en':
-            with open(subtitles_file_en, "rb") as f:
-                response = requests.post("http://argos-translate/translate_subtitles", files={"file": f})
-            if response.status_code == 200:
-                with open(subtitles_file, "wb") as f:
-                    f.write(response.content)
-                target_file = subtitles_file
-            else:
-                raise Exception("Translation failed")
-
-        # 3. Integration logic (Embed/Burn)
-        final_path = target_file
-        if integration and extension in videos_types:
-            if integration == 'embed':
-                final_path = embed_subtitles(temp_file, target_file, output_video_file)
-            elif integration == 'burn':
-                final_path = burn_subtitles(temp_file, target_file, output_video_file)
-
-        # Mark as completed
-        tasks[task_id] = {"status": "completed", "file_path": final_path}
-
+        await loop.run_in_executor(
+            None,
+            lambda: _run_subtitling_sync(
+                task_id, temp_file, language, integration, extension
+            ),
+        )
     except Exception as e:
         log.error(f"Task {task_id} failed: {str(e)}")
         tasks[task_id] = {"status": "failed", "error": str(e)}
@@ -270,3 +296,51 @@ async def check_status(task_id: str):
         return FileResponse(task["file_path"])
 
     return task
+
+
+@app.websocket("/stt/ws/{task_id}")
+async def subtitles_websocket(websocket: WebSocket, task_id: str):
+    """
+    WebSocket endpoint to wait for subtitle task completion.
+    sends status updates until complete or error.
+    """
+    await websocket.accept()
+    last_status = None
+
+    try:
+        while True:
+            if task_id not in tasks:
+                await websocket.send_json(
+                    {"status": "error", "message": "Task not found"}
+                )
+                break
+
+            task = tasks[task_id]
+            status = task["status"]
+
+            # Send update when status changes
+            if last_status is None or last_status != status:
+                if status == "completed":
+                    await websocket.send_json({"status": "complete"})
+                elif status == "failed":
+                    await websocket.send_json(
+                        {
+                            "status": "error",
+                            "error": task.get("error", "Unknown error"),
+                        }
+                    )
+                else:
+                    await websocket.send_json(
+                        {"status": status, "message": "Processing..."}
+                    )
+                last_status = status
+
+            if status in ["completed", "failed"]:
+                break
+
+            await asyncio.sleep(1)
+    except WebSocketDisconnect:
+        log.debug(f"WebSocket disconnected for task {task_id}")
+    except Exception as e:
+        log.exception(f"WebSocket error for task {task_id}")
+        await websocket.send_json({"status": "error", "message": str(e)})

@@ -107,7 +107,7 @@ export async function generateSubtitles(
       );
     }
 
-    const startJson = await startResponse.json().catch((err) => {
+    const requestJson = await startResponse.json().catch((err) => {
       logger.error(
         { err },
         'Unable to parse JSON response when starting subtitle task.'
@@ -115,68 +115,103 @@ export async function generateSubtitles(
       throw new Error('Unable to parse subtitle task start response.');
     });
 
-    task_id = startJson.task_id;
+    task_id = requestJson.task_id;
     if (!task_id) {
-      logger.error({ startJson }, 'Subtitle task started without task_id.');
+      logger.error({ requestJson }, 'Subtitle task started without task_id.');
       throw new Error('Subtitle service did not return a task id.');
     }
 
-    logger.info({ task_id }, 'Subtitle task accepted, starting polling.');
+    logger.info(
+      { task_id },
+      'Subtitle task accepted, connecting via WebSocket.'
+    );
 
-    // 2. Polling Loop
-    while (true) {
-      let statusResponse: Response;
-      try {
-        statusResponse = await fetch(`${baseUrl}/stt/status/${task_id}`);
-      } catch (err) {
-        logger.error({ err, task_id }, 'Network error while checking subtitle status.');
-        throw new Error('Network error while checking subtitle status.');
-      }
+    // Wait for completion
+    const ws = new WebSocket(
+      `${process.env.API_SCHEME === 'https' ? 'wss' : 'ws'}://${
+        process.env.API_URL
+      }:${process.env.TTS_PORT}/stt/ws/${task_id}`
+    );
 
-      const contentType = statusResponse.headers.get('content-type') || '';
+    const data = await new Promise<{
+      status: string;
+      error?: string;
+      message?: string;
+    }>((resolve, reject) => {
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data.toString()) as {
+            status: string;
+            error?: string;
+            message?: string;
+          };
 
-      // If backend returns the final file, it will NOT be JSON.
-      if (statusResponse.ok && !contentType.includes('application/json')) {
-        logger.info({ task_id }, 'Subtitle generation completed, returning file blob.');
-        return await statusResponse.blob();
-      }
+          if (msg.status === 'complete') {
+            ws.close();
+            resolve(msg);
+          } else if (msg.status === 'error') {
+            ws.close();
+            reject(
+              new Error(
+                msg.error || msg.message || 'Subtitle generation failed'
+              )
+            );
+          } else {
+            logger.debug(
+              { task_id, status: msg.status },
+              'Subtitle task progress.'
+            );
+          }
+        } catch (err) {
+          logger.error({ err, task_id }, 'Invalid WebSocket message.');
+          ws.close();
+          reject(new Error('Invalid WebSocket message from subtitle service.'));
+        }
+      };
 
-      if (!statusResponse.ok) {
-        const errorText = await statusResponse.text().catch(() => '');
-        logger.error(
-          {
-            task_id,
-            status: statusResponse.status,
-            statusText: statusResponse.statusText,
-            body: errorText,
-          },
-          'Subtitle status endpoint returned an error.'
-        );
-        throw new Error(
-          `Subtitle status request failed (HTTP ${statusResponse.status} ${statusResponse.statusText})`
-        );
-      }
-
-      const data = await statusResponse.json().catch((err) => {
+      ws.onerror = (err) => {
         logger.error(
           { err, task_id },
-          'Unable to parse JSON response from subtitle status endpoint.'
+          'WebSocket error while waiting for subtitles.'
         );
-        throw new Error('Unable to parse subtitle status response.');
-      });
+        ws.close();
+        reject(new Error('WebSocket error while waiting for subtitles.'));
+      };
 
-      if (data.status === 'failed') {
-        logger.error({ task_id, error: data.error }, 'Subtitle task reported failure.');
-        throw new Error(
-          `Subtitle generation failed: ${data.error || 'Unknown error from subtitle service.'}`
-        );
-      }
+      ws.onclose = (event) => {
+        if (event.code !== 1000 && !event.wasClean) {
+          const msg =
+            event.reason ||
+            `WebSocket closed unexpectedly (code ${event.code})`;
+          logger.error({ task_id, code: event.code }, msg);
+          reject(new Error(msg));
+        }
+      };
+    });
 
-      logger.debug({ task_id, status: data.status }, 'Subtitle task still processing.');
-
-      // Wait 5 seconds before next check
-      await new Promise((resolve) => setTimeout(resolve, 5000));
+    if (data.status !== 'complete') {
+      throw new Error(`Unexpected subtitle status: ${data.status}`);
     }
+
+    // Fetch the result file
+    logger.info({ task_id }, 'Subtitle generation completed, fetching file.');
+    const fileResponse = await fetch(`${baseUrl}/stt/status/${task_id}`);
+    if (!fileResponse.ok) {
+      const errorText = await fileResponse.text().catch(() => '');
+      logger.error(
+        {
+          task_id,
+          status: fileResponse.status,
+          statusText: fileResponse.statusText,
+          body: errorText,
+        },
+        'Failed to fetch subtitle file after completion.'
+      );
+      throw new Error(
+        `Failed to fetch subtitle file (HTTP ${fileResponse.status} ${fileResponse.statusText})`
+      );
+    }
+    return await fileResponse.blob();
   } catch (err: any) {
     logger.error(
       { err, task_id },

@@ -1,13 +1,13 @@
 aiofiles~=24.1
 bson~=0.5
-fastapi~=0.110
+fastapi~=0.115
 kokoro~=0.9
 misaki[zh]
 openai-whisper==20250625
 pydantic~=2.7
 python-multipart~=0.0
 soundfile
-uvicorn~=0.30
+uvicorn[standard]~=0.30
 torch~=2.5
 transformers~=4.46
 numpy~=1.22
