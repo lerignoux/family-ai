@@ -12,7 +12,7 @@ import requests
 import whisper
 import whisper_timestamped
 from bson import ObjectId
-from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from kokoro_tts import text_to_audio
@@ -272,7 +272,9 @@ async def process_subtitling_task(
         tasks[task_id] = {"status": "failed", "error": str(e)}
 
 @app.post("/stt/subtitles")
-async def get_subtitles(background_tasks: BackgroundTasks, file: UploadFile, language: str = 'en', integration: str = None):
+async def get_subtitles(
+    file: UploadFile, language: str = "en", integration: str = None
+):
     task_id = str(uuid.uuid4())
     _, extension = os.path.splitext(file.filename)
     temp_file = f"/app/tts/input/{task_id}_{file.filename}"
@@ -282,7 +284,12 @@ async def get_subtitles(background_tasks: BackgroundTasks, file: UploadFile, lan
         await out_file.write(content)
 
     tasks[task_id] = {"status": "processing"}
-    background_tasks.add_task(process_subtitling_task, task_id, temp_file, language, integration, extension)
+    log.info(
+        f"Accepted subtitles task {task_id} (language={language}, integration={integration}, filename={file.filename})"
+    )
+    asyncio.create_task(
+        process_subtitling_task(task_id, temp_file, language, integration, extension)
+    )
     return {"task_id": task_id, "status": "accepted"}
 
 @app.get("/stt/status/{task_id}")
@@ -292,7 +299,6 @@ async def check_status(task_id: str):
         raise HTTPException(status_code=404, detail="Task not found")
 
     if task["status"] == "completed":
-        # Return the file once processing is finished
         return FileResponse(task["file_path"])
 
     return task
@@ -311,7 +317,11 @@ async def subtitles_websocket(websocket: WebSocket, task_id: str):
         while True:
             if task_id not in tasks:
                 await websocket.send_json(
-                    {"status": "error", "message": "Task not found"}
+                    {
+                        "status": "error",
+                        "message": "Task not found",
+                        "task_id": task_id,
+                    }
                 )
                 break
 
