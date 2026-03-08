@@ -79,27 +79,109 @@ export async function generateSubtitles(
   });
   const baseUrl = `${process.env.API_SCHEME}://${process.env.API_URL}:${process.env.TTS_PORT}`;
 
-  const startResponse = await fetch(`${baseUrl}/stt/subtitles?${params}`, {
-    method: 'POST',
-    body: formData,
-  });
-  const { task_id } = await startResponse.json();
+  logger.info(
+    { language, integration },
+    'Starting subtitle generation request.'
+  );
 
-  // 2. Polling Loop
-  while (true) {
-    const statusResponse = await fetch(`${baseUrl}/stt/status/${task_id}`);
+  let task_id: string | undefined;
 
-    if (
-      statusResponse.ok &&
-      statusResponse.headers.get('content-type') !== 'application/json'
-    ) {
-      return await statusResponse.blob();
+  try {
+    const startResponse = await fetch(`${baseUrl}/stt/subtitles?${params}`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!startResponse.ok) {
+      const errorText = await startResponse.text().catch(() => '');
+      logger.error(
+        {
+          status: startResponse.status,
+          statusText: startResponse.statusText,
+          body: errorText,
+        },
+        'Failed to start subtitle generation task.'
+      );
+      throw new Error(
+        `Failed to start subtitle generation (HTTP ${startResponse.status} ${startResponse.statusText})`
+      );
     }
 
-    const data = await statusResponse.json();
-    if (data.status === 'failed') throw new Error(data.error);
+    const startJson = await startResponse.json().catch((err) => {
+      logger.error(
+        { err },
+        'Unable to parse JSON response when starting subtitle task.'
+      );
+      throw new Error('Unable to parse subtitle task start response.');
+    });
 
-    // Wait 5 seconds before next check
-    await new Promise((resolve) => setTimeout(resolve, 5000));
+    task_id = startJson.task_id;
+    if (!task_id) {
+      logger.error({ startJson }, 'Subtitle task started without task_id.');
+      throw new Error('Subtitle service did not return a task id.');
+    }
+
+    logger.info({ task_id }, 'Subtitle task accepted, starting polling.');
+
+    // 2. Polling Loop
+    while (true) {
+      let statusResponse: Response;
+      try {
+        statusResponse = await fetch(`${baseUrl}/stt/status/${task_id}`);
+      } catch (err) {
+        logger.error({ err, task_id }, 'Network error while checking subtitle status.');
+        throw new Error('Network error while checking subtitle status.');
+      }
+
+      const contentType = statusResponse.headers.get('content-type') || '';
+
+      // If backend returns the final file, it will NOT be JSON.
+      if (statusResponse.ok && !contentType.includes('application/json')) {
+        logger.info({ task_id }, 'Subtitle generation completed, returning file blob.');
+        return await statusResponse.blob();
+      }
+
+      if (!statusResponse.ok) {
+        const errorText = await statusResponse.text().catch(() => '');
+        logger.error(
+          {
+            task_id,
+            status: statusResponse.status,
+            statusText: statusResponse.statusText,
+            body: errorText,
+          },
+          'Subtitle status endpoint returned an error.'
+        );
+        throw new Error(
+          `Subtitle status request failed (HTTP ${statusResponse.status} ${statusResponse.statusText})`
+        );
+      }
+
+      const data = await statusResponse.json().catch((err) => {
+        logger.error(
+          { err, task_id },
+          'Unable to parse JSON response from subtitle status endpoint.'
+        );
+        throw new Error('Unable to parse subtitle status response.');
+      });
+
+      if (data.status === 'failed') {
+        logger.error({ task_id, error: data.error }, 'Subtitle task reported failure.');
+        throw new Error(
+          `Subtitle generation failed: ${data.error || 'Unknown error from subtitle service.'}`
+        );
+      }
+
+      logger.debug({ task_id, status: data.status }, 'Subtitle task still processing.');
+
+      // Wait 5 seconds before next check
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    }
+  } catch (err: any) {
+    logger.error(
+      { err, task_id },
+      'Error generating subtitles (client-side wrapper caught exception).'
+    );
+    throw err;
   }
 }

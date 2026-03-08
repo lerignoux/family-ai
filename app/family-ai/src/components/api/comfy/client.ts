@@ -101,7 +101,10 @@ export class ComfyUIClient {
     return json;
   }
 
-  async queuePrompt(prompt: Prompt): Promise<QueuePromptResult> {
+  async queuePrompt(
+    prompt: Prompt,
+    clearVram = true
+  ): Promise<QueuePromptResult> {
     const res = await fetch(`${this.scheme}://${this.serverAddress}/prompt`, {
       method: 'POST',
       headers: {
@@ -118,6 +121,21 @@ export class ComfyUIClient {
 
     if ('error' in json) {
       throw new Error(JSON.stringify(json));
+    }
+
+    if (clearVram) {
+      //comfy.shanghai.laurent.erignoux.fr:9443/api/free
+      await fetch(`${this.scheme}://${this.serverAddress}/api/free`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          unload_models: true,
+          free_memory: true,
+        }),
+      });
     }
 
     return json;
