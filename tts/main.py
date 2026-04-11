@@ -42,8 +42,17 @@ app.add_middleware(
 
 # FIXME Need to check the quality/speed we want.
 DEFAULT_MODEL = "small"
-log.info(f"Loading whisper model {DEFAULT_MODEL}")
-STT_MODEL = whisper.load_model(DEFAULT_MODEL).to("cuda")
+log.info(f"Loading whisper model {DEFAULT_MODEL} on CPU (moved to GPU per request)")
+STT_MODEL = whisper.load_model(DEFAULT_MODEL)  # keep on CPU by default
+
+SUBTITLES_MODEL_NAME = "openai/whisper-large-v2"
+log.info(
+    f"Loading subtitles Whisper model {SUBTITLES_MODEL_NAME} on CPU (moved to GPU per task)"
+)
+SUBTITLES_MODEL = whisper_timestamped.load_model(
+    SUBTITLES_MODEL_NAME, device="cpu"
+)
+
 MODELS_FOLDER = "/root/.local/share/tts"
 DEFAULT_MODEL = "tts_models/en/ljspeech/fast_pitch"
 
@@ -131,6 +140,18 @@ def burn_subtitles(video_file, subtitles_file, output_video_file):
     return output_video_file
 
 
+def _clear_cuda_cache(context: str = "") -> None:
+    """Best-effort VRAM cleanup after heavy GPU work."""
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            log.debug(f"Cleared CUDA cache after {context}.")
+    except Exception as e:  # pragma: no cover - defensive
+        log.debug(f"Unable to clear CUDA cache after {context}: {e}")
+
+
 @app.post("/stt")
 async def create_upload_file(file: UploadFile, language: str = ""):
     temp_file = f"/app/tts/input/input_{ObjectId()}_{file.filename}"
@@ -140,7 +161,18 @@ async def create_upload_file(file: UploadFile, language: str = ""):
         await out_file.write(content)
 
     language_code = stt_language.get(language) if language else None
-    result = STT_MODEL.transcribe(temp_file, language=language_code)
+
+    # Move model to GPU just for this request, then offload back to CPU.
+    global STT_MODEL
+    try:
+        STT_MODEL = STT_MODEL.to("cuda")
+        result = STT_MODEL.transcribe(temp_file, language=language_code)
+    finally:
+        try:
+            STT_MODEL = STT_MODEL.to("cpu")
+        except Exception as e:
+            log.debug(f"Failed to move STT_MODEL back to CPU: {e}")
+        _clear_cuda_cache("STT /stt")
 
     if not debug:
         os.remove(temp_file)
@@ -156,7 +188,19 @@ async def transcribe_file(file: UploadFile, language: str = ""):
         await out_file.write(content)
 
     language_code = stt_language.get(language) if language else None
-    result = STT_MODEL.transcribe(temp_file, language=language_code, task="translate")
+
+    global STT_MODEL
+    try:
+        STT_MODEL = STT_MODEL.to("cuda")
+        result = STT_MODEL.transcribe(
+            temp_file, language=language_code, task="translate"
+        )
+    finally:
+        try:
+            STT_MODEL = STT_MODEL.to("cpu")
+        except Exception as e:
+            log.debug(f"Failed to move STT_MODEL back to CPU after /transcribe: {e}")
+        _clear_cuda_cache("STT /transcribe")
 
     if not debug:
         os.remove(temp_file)
@@ -216,39 +260,54 @@ def _run_subtitling_sync(
     subtitles_file_en = f"/app/tts/output/{filename_base}.en.srt"
     subtitles_file = f"/app/tts/output/{filename_base}.{language}.srt"
 
-    # 1. Whisper Transcription (Heavy CUDA Task)
-    audio = whisper_timestamped.load_audio(temp_file)
-    model = whisper_timestamped.load_model("openai/whisper-large-v2", device="cuda")
-    result = whisper_timestamped.transcribe(model, audio, task="translate")
+    global SUBTITLES_MODEL
+    try:
+        # 1. Whisper Transcription (Heavy CUDA Task)
+        audio = whisper_timestamped.load_audio(temp_file)
 
-    with open(subtitles_file_en, "w", encoding="utf-8") as f:
-        write_srt(result["segments"], file=f)
+        # Move large subtitles model to GPU for this task, then back to CPU.
+        try:
+            SUBTITLES_MODEL = SUBTITLES_MODEL.to("cuda")  # type: ignore[attr-defined]
+        except Exception as e:
+            log.debug(f"Failed to move SUBTITLES_MODEL to GPU, staying on CPU: {e}")
 
-    # 2. Translation logic (Argos)
-    target_file = subtitles_file_en
-    if language != "en":
-        with open(subtitles_file_en, "rb") as f:
-            response = requests.post(
-                "http://argos-translate/translate_subtitles",
-                files={"file": f},
-                timeout=60,
-            )
-        if response.status_code == 200:
-            with open(subtitles_file, "wb") as f:
-                f.write(response.content)
-            target_file = subtitles_file
-        else:
-            raise Exception("Translation failed")
+        result = whisper_timestamped.transcribe(SUBTITLES_MODEL, audio, task="translate")
 
-    # 3. Integration logic (Embed/Burn)
-    final_path = target_file
-    if integration and extension in videos_types:
-        if integration == "embed":
-            final_path = embed_subtitles(temp_file, target_file, output_video_file)
-        elif integration == "burn":
-            final_path = burn_subtitles(temp_file, target_file, output_video_file)
+        with open(subtitles_file_en, "w", encoding="utf-8") as f:
+            write_srt(result["segments"], file=f)
 
-    tasks[task_id] = {"status": "completed", "file_path": final_path}
+        # 2. Translation logic (Argos)
+        target_file = subtitles_file_en
+        if language != "en":
+            with open(subtitles_file_en, "rb") as f:
+                response = requests.post(
+                    "http://argos-translate/translate_subtitles",
+                    files={"file": f},
+                    timeout=60,
+                )
+            if response.status_code == 200:
+                with open(subtitles_file, "wb") as f:
+                    f.write(response.content)
+                target_file = subtitles_file
+            else:
+                raise Exception("Translation failed")
+
+        # 3. Integration logic (Embed/Burn)
+        final_path = target_file
+        if integration and extension in videos_types:
+            if integration == "embed":
+                final_path = embed_subtitles(temp_file, target_file, output_video_file)
+            elif integration == "burn":
+                final_path = burn_subtitles(temp_file, target_file, output_video_file)
+
+        tasks[task_id] = {"status": "completed", "file_path": final_path}
+    finally:
+        # Offload subtitles model back to CPU and free VRAM.
+        try:
+            SUBTITLES_MODEL = SUBTITLES_MODEL.to("cpu")  # type: ignore[attr-defined]
+        except Exception as e:
+            log.debug(f"Failed to move SUBTITLES_MODEL back to CPU: {e}")
+        _clear_cuda_cache("subtitles generation")
 
 
 async def process_subtitling_task(
