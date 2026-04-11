@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { jsPDF } from 'jspdf';
+import assistantHeadPng from '../assets/assistant_head_black.png';
+import pageBackgroundPng from '../assets/page-background.png';
 import { textToImage } from '../components/api/comfy';
 import {
   textToStory,
@@ -18,8 +20,17 @@ interface StoryPage {
   text: string;
   illustration: string;
   pageNumber: number;
+  /** jsPDF format for addImage; from Blob.type (ComfyUI may return JPEG). */
+  pdfImageFormat: 'PNG' | 'JPEG' | 'WEBP';
 }
 type StoryBook = StoryPage[];
+
+function pdfImageFormatFromBlobType(blobType: string): 'PNG' | 'JPEG' | 'WEBP' {
+  const t = blobType.toLowerCase();
+  if (t.includes('jpeg') || t.includes('jpg')) return 'JPEG';
+  if (t.includes('webp')) return 'WEBP';
+  return 'PNG';
+}
 
 const userInput = ref(
   'a little kid day in the wood playing with his animals friends.'
@@ -72,6 +83,25 @@ const style = ref<{
 const storyIndex = ref(0);
 const formattedStory = ref<StoryBook>([]);
 
+const sortedFormattedStory = computed(() =>
+  [...formattedStory.value].sort((a, b) => a.pageNumber - b.pageNumber)
+);
+
+/** 1-based page numbers; avoids duplicate Comfy jobs when WS skips chapter steps. */
+const illustrationJobsStarted = ref(new Set<number>());
+
+function startIllustrationsFromProgress(progress: StoryProgress) {
+  if (!progress.chapters) return;
+  for (const [chapterKey, text] of Object.entries(progress.chapters)) {
+    const m = /^chapter (\d+)$/.exec(chapterKey);
+    if (!m) continue;
+    const pageNumber = Number(m[1]) + 1;
+    if (illustrationJobsStarted.value.has(pageNumber)) continue;
+    illustrationJobsStarted.value.add(pageNumber);
+    void generateIllustration(pageNumber, text);
+  }
+}
+
 const querying = ref(false);
 
 const storyText = ref<string>('');
@@ -98,16 +128,17 @@ const generateIllustration = async (chapter: number, content: string) => {
       'simple'
     );
     if (result instanceof Blob) {
+      const pdfFmt = pdfImageFormatFromBlobType(result.type);
+      formattedStory.value.push({
+        text: content,
+        illustration: URL.createObjectURL(result),
+        pageNumber: chapter,
+        pdfImageFormat: pdfFmt,
+      });
       const reader = new FileReader();
       reader.onload = () => {
         if (typeof reader.result === 'string') {
           illustrations.value[chapter] = reader.result;
-
-          formattedStory.value.push({
-            text: content,
-            illustration: URL.createObjectURL(result),
-            pageNumber: chapter,
-          });
         }
       };
       reader.readAsDataURL(result);
@@ -115,6 +146,7 @@ const generateIllustration = async (chapter: number, content: string) => {
       illustrations.value[chapter] = result;
     }
   } catch (err) {
+    illustrationJobsStarted.value.delete(chapter);
     logger.error(`Failed to generate illustration for ${chapter}:`, err);
     $q.notify({
       type: 'warning',
@@ -139,6 +171,8 @@ const generateStory = async () => {
   loading.value += 1;
   storyText.value = '';
   storyResult.value = null;
+  formattedStory.value = [];
+  illustrationJobsStarted.value = new Set();
   illustrations.value = {};
   error.value = null;
 
@@ -156,14 +190,7 @@ const generateStory = async () => {
           progress.status === 'complete'
         ) {
           storyText.value = `Polishing chapter ${progress.current_chapter} of ${progress.chapter_count}...`;
-          if (progress.current_chapter) {
-            var chapterName = `chapter ${progress.current_chapter - 1}`;
-            if (progress.chapters && progress.chapters[chapterName])
-              generateIllustration(
-                progress.current_chapter,
-                progress.chapters[chapterName]
-              );
-          }
+          startIllustrationsFromProgress(progress);
           if (
             progress.status === 'complete' &&
             progress.chapters &&
@@ -220,7 +247,7 @@ async function saveStoryPdf() {
     maxWidth: 160,
   };
 
-  doc.addImage('src/assets/assistant_head_black.png', 'PNG', 84, 24, 40, 40);
+  doc.addImage(assistantHeadPng, 'PNG', 84, 24, 40, 40);
   doc.setTextColor(0.8, 0.3, 0.3);
   doc.setFontSize(24);
   doc.setFont('undefined', 'bold');
@@ -246,10 +273,17 @@ async function saveStoryPdf() {
 
   doc.setTextColor(0.0);
   doc.setFontSize(16);
-  formattedStory.value.forEach((page: StoryPage) => {
+  sortedFormattedStory.value.forEach((page: StoryPage) => {
     doc.addPage();
     doc.text(page.text, 24, 200, textOptions);
-    doc.addImage(page.illustration, 'PNG', 24, 24, 160, 160);
+    doc.addImage(
+      page.illustration,
+      page.pdfImageFormat,
+      24,
+      24,
+      160,
+      160
+    );
   });
   doc.save('personal_ai_story.pdf');
 }
@@ -413,19 +447,19 @@ watch(
             class="shadow-2"
           >
             <q-carousel-slide
-              v-for="(storyPage, index) in formattedStory"
-              :key="index"
+              v-for="(storyPage, index) in sortedFormattedStory"
+              :key="storyPage.pageNumber"
               :name="index"
-              class="column wrap"
+              class="row no-wrap items-stretch"
               draggable="false"
             >
               <q-img
                 style="width: 45%; min-width: 150px"
                 class="rounded-borders full-height"
-                src="src/assets/page-background.png"
+                :src="pageBackgroundPng"
               >
                 <div
-                  class="absolute-full text-subtitle2 flex flex-center;"
+                  class="absolute-full text-subtitle2 flex flex-center"
                   style="overflow-y: scroll"
                 >
                   <div
@@ -446,7 +480,7 @@ watch(
             <template v-slot:navigation-icon="{ onClick, index }">
               <q-btn @click="onClick">
                 <q-avatar size="56px" square>
-                  <img :src="formattedStory[index].illustration" />
+                  <img :src="sortedFormattedStory[index].illustration" />
                 </q-avatar>
               </q-btn>
             </template>
@@ -460,7 +494,7 @@ watch(
         color="primary"
         icon="mdi-file-download"
         @click="saveStoryPdf"
-        :disable="querying || formattedStory.length == 0"
+        :disable="querying || sortedFormattedStory.length == 0"
         padding="none"
       />
       <q-tooltip> Download story PDF </q-tooltip>
