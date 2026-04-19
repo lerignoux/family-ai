@@ -21,10 +21,10 @@ tts/output/*.wav
 tts/__pycache__
 tts/kokoro/__pycache__
 
-argos-translate/local/*/**
-argos-translate/input/*
-argos-translate/output/*
-argos-translate/__pycache__
+translate/local/*/**
+translate/input/*
+translate/output/*
+translate/__pycache__
 
 comfy/output/*
 comfy/custom_nodes

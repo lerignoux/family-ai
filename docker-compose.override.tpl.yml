@@ -30,7 +30,7 @@ services:
     # Use the reload option to help debugging.
     # command: "uvicorn main:app --host 0.0.0.0 --port 80 --reload"
 
-  argos-translate:
+  translate:
     deploy:
       resources:
         reservations:

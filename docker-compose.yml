@@ -63,8 +63,8 @@ services:
       - ./tts/models:/root/.local/share/tts/
       - ./tts/cache:/root/.cache/
 
-  argos-translate:
-    container_name: argos-translate
+  translate:
+    container_name: translate
     build:
       context: ./argos-translate
     deploy:
@@ -83,8 +83,8 @@ services:
     ports:
       - 8187:80
     volumes:
-      - ./argos-translate:/app/argos-translate
-      - ./argos-translate/local:/root/.local
+      - ./translate:/app/argos-translate
+      - ./translate/local:/root/.local
     restart: always
 
   comfy:
@@ -116,7 +116,7 @@ services:
     build:
       context: ./app
     depends_on:
-      - argos-translate
+      - translate
       - comfy
       - ollama-api
       - tts
