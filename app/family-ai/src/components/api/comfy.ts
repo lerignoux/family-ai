@@ -14,7 +14,6 @@ export interface ComfyModel {
 }
 
 export async function getAvailableModels(): Promise<ComfyModel[]> {
-  logger.info('Fetching available models from Ollama');
   const models = [
     {
       name: 'Z Image',
@@ -22,18 +21,8 @@ export async function getAvailableModels(): Promise<ComfyModel[]> {
       description: 'Z image model for realist pictures.',
     },
     {
-      name: 'Dreamshaper',
-      value: 'dreamshaperXL_v21TurboDPMSDE.safetensors',
-      description: 'a model trained on fantasy.',
-    },
-    {
-      name: 'Epicrealism',
-      value: 'epicrealismXL_v5Ultimate.safetensors',
-      description: 'a realist model.',
-    },
-    {
-      name: 'Flux Dev',
-      value: 'flux1-dev-fp8.safetensors',
+      name: 'Flux 2 Klein',
+      value: 'flux-2-klein-base-4b-fp8.safetensors',
       description: 'A model good with embedded Text',
     },
   ];
@@ -51,6 +40,11 @@ export async function textToImage(
   // Access the JSON data via the 'default' export
   const promptData: Prompt = workflowTemplate.default;
 
+  if (template == 'flux_2_klein') {
+    promptData['76'].inputs.value = prompt;
+    promptData['75:73'].inputs.noise_seed = Math.random();
+    promptData['75:70'].inputs.unet_name = model;
+  }
   if (template == 'z_image_turbo') {
     promptData['34:27'].inputs.text = prompt;
     promptData['34:3'].inputs.seed = Math.random();
