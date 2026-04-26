@@ -351,7 +351,7 @@ export class ComfyUIClient {
     }
   }
 
-  async getImages(prompt: Prompt): Promise<ImagesResponse> {
+  async getImages(prompt: Prompt, clearVram: boolean): Promise<ImagesResponse> {
     if (!this.ws) {
       throw new Error(
         'WebSocket client is not connected. Please call connect() before interacting.'
@@ -360,7 +360,7 @@ export class ComfyUIClient {
 
     let listener: any;
 
-    const queue = await this.queuePrompt(prompt);
+    const queue = await this.queuePrompt(prompt, clearVram);
     const promptId = queue.prompt_id;
 
     return new Promise<ImagesResponse>((resolve, reject) => {

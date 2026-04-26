@@ -3,7 +3,15 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { jsPDF } from 'jspdf';
 import assistantHeadPng from '../assets/assistant_head_black.png';
 import pageBackgroundPng from '../assets/page-background.png';
-import { textToImage } from '../components/api/comfy';
+import { textToImage, freeComfyMemory } from '../components/api/comfy';
+import ComfyClientManager from 'src/components/api/comfy/manager';
+
+// Initialize the manager (if not already done)
+ComfyClientManager.init(
+  `${process.env.COMFY_URL}`,
+  process.env.COMFY_CLIENT_ID || '',
+  process.env.API_SCHEME
+);
 import {
   textToStory,
   getAvailableModels,
@@ -22,6 +30,8 @@ interface StoryPage {
   pageNumber: number;
   /** jsPDF format for addImage; from Blob.type (ComfyUI may return JPEG). */
   pdfImageFormat: 'PNG' | 'JPEG' | 'WEBP';
+  /** True until the chapter image has been generated. */
+  illustrationPending?: boolean;
 }
 type StoryBook = StoryPage[];
 
@@ -41,8 +51,8 @@ const models = ref<OllamaModel[]>([]);
 const initializing = ref(true);
 const loading = ref(0);
 const modelIllustration = ref({
-  label: 'EpicRealism XL',
-  value: 'epicrealismXL_v5Ultimate.safetensors',
+  label: 'Flux 2 Klein',
+  value: 'flux-2-klein-9b-fp8.safetensors',
 });
 const storyLength = ref(4);
 const styles = ref([
@@ -87,19 +97,120 @@ const sortedFormattedStory = computed(() =>
   [...formattedStory.value].sort((a, b) => a.pageNumber - b.pageNumber)
 );
 
+const canSaveStoryPdf = computed(
+  () =>
+    sortedFormattedStory.value.length > 0 &&
+    !sortedFormattedStory.value.some((p) => p.illustrationPending)
+);
+
 /** 1-based page numbers; avoids duplicate Comfy jobs when WS skips chapter steps. */
 const illustrationJobsStarted = ref(new Set<number>());
 
+/** Story batch: free VRAM once after LLM is done and all illustration jobs finished. */
+const storyLlmFinished = ref(false);
+const storyVramFreed = ref(false);
+const pendingStoryIllustrations = ref(0);
+
+const illustrationQueue = ref<{ chapter: number; content: string }[]>([]);
+const isProcessingQueue = ref(false);
+
+async function processIllustrationQueue() {
+  if (isProcessingQueue.value) return;
+  isProcessingQueue.value = true;
+  while (illustrationQueue.value.length > 0) {
+    const job = illustrationQueue.value.shift();
+    if (job) {
+      try {
+        await generateIllustration(job.chapter, job.content);
+      } catch (err) {
+        console.error(
+          `Failed to process illustration for chapter ${job.chapter}:`,
+          err
+        );
+      }
+    }
+  }
+  isProcessingQueue.value = false;
+}
+
+function maybeFreeComfyAfterStoryBatch(): void {
+  if (!storyLlmFinished.value || storyVramFreed.value) return;
+  if (pendingStoryIllustrations.value > 0) return;
+  storyVramFreed.value = true;
+  void freeComfyMemory().catch((e) => {
+    logger.warn('freeComfyMemory after story batch failed:', e);
+  });
+}
+
+function pageNumberFromChapterKey(chapterKey: string): number | null {
+  const m = /^chapter (\d+)$/i.exec(chapterKey);
+  if (!m) return null;
+  return Number(m[1]) + 1;
+}
+
+/**
+ * Add or update carousel pages as soon as chapter text arrives (before images).
+ * Keeps one row per pageNumber; refreshes text if the backend sends revisions.
+ */
+function syncStoryPagesFromChapters(
+  chapters: Record<string, string> | undefined
+) {
+  if (!chapters) return;
+  for (const [chapterKey, text] of Object.entries(chapters)) {
+    const pageNumber = pageNumberFromChapterKey(chapterKey);
+    if (pageNumber === null) continue;
+    const pages = formattedStory.value;
+    const idx = pages.findIndex((p) => p.pageNumber === pageNumber);
+    if (idx >= 0) {
+      const prev = pages[idx];
+      pages[idx] = {
+        ...prev,
+        text,
+        ...(prev.illustrationPending
+          ? {
+              illustration: pageBackgroundPng,
+              pdfImageFormat: 'PNG' as const,
+              illustrationPending: true,
+            }
+          : {}),
+      };
+    } else {
+      pages.push({
+        text,
+        illustration: pageBackgroundPng,
+        pageNumber,
+        pdfImageFormat: 'PNG',
+        illustrationPending: true,
+      });
+    }
+  }
+  const sorted = [...formattedStory.value].sort(
+    (a, b) => a.pageNumber - b.pageNumber
+  );
+  if (sorted.length > 0) {
+    storyIndex.value = sorted.length - 1;
+  }
+}
+
 function startIllustrationsFromProgress(progress: StoryProgress) {
   if (!progress.chapters) return;
-  for (const [chapterKey, text] of Object.entries(progress.chapters)) {
-    const m = /^chapter (\d+)$/.exec(chapterKey);
-    if (!m) continue;
-    const pageNumber = Number(m[1]) + 1;
-    if (illustrationJobsStarted.value.has(pageNumber)) continue;
+  syncStoryPagesFromChapters(progress.chapters);
+  const entries = Object.entries(progress.chapters).filter(([key]) =>
+    /^chapter \d+$/i.test(key)
+  );
+  entries.sort(([a], [b]) => {
+    const na = pageNumberFromChapterKey(a) ?? 0;
+    const nb = pageNumberFromChapterKey(b) ?? 0;
+    return na - nb;
+  });
+  entries.forEach(([chapterKey, text]) => {
+    const pageNumber = pageNumberFromChapterKey(chapterKey);
+    if (pageNumber === null) return;
+    if (illustrationJobsStarted.value.has(pageNumber)) return;
     illustrationJobsStarted.value.add(pageNumber);
-    void generateIllustration(pageNumber, text);
-  }
+    illustrationQueue.value.push({ chapter: pageNumber, content: text });
+  });
+  processIllustrationQueue();
 }
 
 const querying = ref(false);
@@ -119,22 +230,55 @@ const formatStoryText = (result: StoryResult): string => {
 };
 
 const generateIllustration = async (chapter: number, content: string) => {
+  pendingStoryIllustrations.value += 1;
   loading.value += 1;
   try {
-    const prompt = `Create an illustration for the following chapter:\n\n${content}`;
+    const s = style.value;
+    const prompt = `${
+      s.illustrationTemplatePrefix ?? ''
+    }Create an illustration for the following chapter:\n\n${content}${
+      s.illustrationTemplateSuffix ?? ''
+    }`;
     const result = await textToImage(
       prompt,
       modelIllustration.value.value,
-      'simple'
+      'flux_2_klein',
+      false
     );
+
+    function applyIllustration(
+      src: string,
+      fmt: 'PNG' | 'JPEG' | 'WEBP'
+    ): void {
+      const idx = formattedStory.value.findIndex(
+        (p) => p.pageNumber === chapter
+      );
+      if (idx >= 0) {
+        const prev = formattedStory.value[idx];
+        if (prev.illustration.startsWith('blob:')) {
+          URL.revokeObjectURL(prev.illustration);
+        }
+        formattedStory.value[idx] = {
+          ...prev,
+          text: content,
+          illustration: src,
+          pdfImageFormat: fmt,
+          illustrationPending: false,
+        };
+      } else {
+        formattedStory.value.push({
+          text: content,
+          illustration: src,
+          pageNumber: chapter,
+          pdfImageFormat: fmt,
+          illustrationPending: false,
+        });
+      }
+    }
+
     if (result instanceof Blob) {
       const pdfFmt = pdfImageFormatFromBlobType(result.type);
-      formattedStory.value.push({
-        text: content,
-        illustration: URL.createObjectURL(result),
-        pageNumber: chapter,
-        pdfImageFormat: pdfFmt,
-      });
+      applyIllustration(URL.createObjectURL(result), pdfFmt);
       const reader = new FileReader();
       reader.onload = () => {
         if (typeof reader.result === 'string') {
@@ -143,10 +287,20 @@ const generateIllustration = async (chapter: number, content: string) => {
       };
       reader.readAsDataURL(result);
     } else {
+      applyIllustration(result, 'PNG');
       illustrations.value[chapter] = result;
     }
   } catch (err) {
     illustrationJobsStarted.value.delete(chapter);
+    const failedIdx = formattedStory.value.findIndex(
+      (p) => p.pageNumber === chapter
+    );
+    if (failedIdx >= 0) {
+      formattedStory.value[failedIdx] = {
+        ...formattedStory.value[failedIdx],
+        illustrationPending: false,
+      };
+    }
     logger.error(`Failed to generate illustration for ${chapter}:`, err);
     $q.notify({
       type: 'warning',
@@ -155,11 +309,14 @@ const generateIllustration = async (chapter: number, content: string) => {
     });
   } finally {
     loading.value -= 1;
+    pendingStoryIllustrations.value -= 1;
+    maybeFreeComfyAfterStoryBatch();
   }
 };
 
 const generateStory = async () => {
   if (!userInput.value || !model.value) {
+    querying.value = false;
     $q.notify({
       type: 'negative',
       message: 'Please enter a prompt and select a model',
@@ -175,6 +332,9 @@ const generateStory = async () => {
   illustrationJobsStarted.value = new Set();
   illustrations.value = {};
   error.value = null;
+  storyLlmFinished.value = false;
+  storyVramFreed.value = false;
+  pendingStoryIllustrations.value = 0;
 
   try {
     const result = await textToStory(
@@ -217,7 +377,10 @@ const generateStory = async () => {
       timeout: 6000,
     });
   } finally {
+    storyLlmFinished.value = true;
+    maybeFreeComfyAfterStoryBatch();
     loading.value -= 1;
+    querying.value = false;
   }
 };
 
@@ -236,59 +399,118 @@ function capitalize(text: string) {
 }
 
 async function saveStoryPdf() {
-  // Default export is a4 paper, portrait, using millimeters for units
   const doc = new jsPDF();
+  const marginX = 24;
+  const marginBottom = 15;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const maxTextWidth = pageWidth - 2 * marginX;
+  /** Top margin when continuing wrapped text on a new page (no illustration). */
+  const continuationTop = 22;
 
-  const titleOptions = {
-    maxWidth: 160,
-  };
+  function contentBottomMm(): number {
+    return doc.internal.pageSize.getHeight() - marginBottom;
+  }
 
-  const textOptions = {
-    maxWidth: 160,
-  };
+  /** Line spacing in mm for the current font size (jsPDF uses pt for font size). */
+  function lineHeightMm(fontSizePt: number, leading = 1.35): number {
+    return fontSizePt * leading * (25.4 / 72);
+  }
+
+  /**
+   * Draws text wrapped to maxTextWidth; adds pages when needed.
+   * Returns the baseline Y directly below the last line (for stacking blocks).
+   */
+  function drawWrappedText(
+    text: string,
+    startX: number,
+    startY: number,
+    fontSizePt: number,
+    leading = 1.35
+  ): number {
+    const raw = String(text ?? '').trim();
+    const payload = raw.length ? raw : ' ';
+    doc.setFontSize(fontSizePt);
+    const lh = lineHeightMm(fontSizePt, leading);
+    const lines = doc.splitTextToSize(payload, maxTextWidth);
+    let y = startY;
+    for (const line of lines) {
+      if (y + lh > contentBottomMm()) {
+        doc.addPage();
+        y = continuationTop;
+      }
+      doc.text(line, startX, y);
+      y += lh;
+    }
+    return y;
+  }
 
   doc.addImage(assistantHeadPng, 'PNG', 84, 24, 40, 40);
-  doc.setTextColor(0.8, 0.3, 0.3);
-  doc.setFontSize(24);
-  doc.setFont('undefined', 'bold');
-  doc.text(capitalize(userInput.value), 24, 80, titleOptions);
 
-  doc.setFont('undefined', 'undefined');
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0.8, 0.3, 0.3);
+  let y = drawWrappedText(capitalize(userInput.value), marginX, 78, 24);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0, 0, 0);
+  let lineY = y + 10;
+  const lhSubtitle = lineHeightMm(18);
+  if (lineY + lhSubtitle > contentBottomMm()) {
+    doc.addPage();
+    lineY = continuationTop;
+  }
   doc.setFontSize(18);
-  doc.text('Story created by', 24, 100, titleOptions);
-  doc.setTextColor('#3333ff');
-  doc.textWithLink('Family Ai', 67, 100, {
+  const prefix = 'Story created by ';
+  doc.text(prefix, marginX, lineY);
+  let xAfter = marginX + doc.getTextWidth(prefix);
+  doc.setTextColor(0.2, 0.2, 1);
+  doc.textWithLink('Family Ai', xAfter, lineY, {
     url: 'https://github.com/lerignoux/family-ai',
   });
-  doc.setTextColor(0.0);
-  doc.text('assistant.', 98, 100, titleOptions);
-  doc.setFontSize(16);
-  doc.text(`* Text generated using ${model.value}`, 26, 110, titleOptions);
-  doc.text(
+  xAfter += doc.getTextWidth('Family Ai');
+  doc.setTextColor(0, 0, 0);
+  doc.text(' assistant.', xAfter, lineY);
+  y = lineY + lhSubtitle;
+
+  doc.setFontSize(14);
+  y = drawWrappedText(
+    `* Text generated using ${model.value}`,
+    marginX,
+    y + 6,
+    14
+  );
+  y = drawWrappedText(
     `* Illustrations generated using ${modelIllustration.value.label}`,
-    26,
-    120,
-    titleOptions
+    marginX,
+    y + 4,
+    14
   );
 
-  doc.setTextColor(0.0);
-  doc.setFontSize(16);
+  const imgX = marginX;
+  const imgY = 24;
+  const imgSize = 160;
+  const textGapBelowImage = 10;
+  const bodyFontPt = 11;
+
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'normal');
   sortedFormattedStory.value.forEach((page: StoryPage) => {
     doc.addPage();
-    doc.text(page.text, 24, 200, textOptions);
     doc.addImage(
       page.illustration,
       page.pdfImageFormat,
-      24,
-      24,
-      160,
-      160
+      imgX,
+      imgY,
+      imgSize,
+      imgSize
     );
+    const textStartY = imgY + imgSize + textGapBelowImage;
+    drawWrappedText(page.text, marginX, textStartY, bodyFontPt);
   });
   doc.save('personal_ai_story.pdf');
 }
 
 onMounted(async () => {
+  await ComfyClientManager.connect();
   try {
     const availableModels = await getAvailableModels();
     models.value = availableModels;
@@ -472,9 +694,16 @@ watch(
               </q-img>
               <q-img
                 style="width: 45%; min-width: 150px"
-                class="rounded-borders full-height"
+                class="rounded-borders full-height relative-position"
                 :src="storyPage.illustration"
               >
+                <div
+                  v-if="storyPage.illustrationPending === true"
+                  class="absolute-full flex flex-center"
+                  style="background: rgba(0, 0, 0, 0.35)"
+                >
+                  <q-spinner color="primary" size="48px" />
+                </div>
               </q-img>
             </q-carousel-slide>
             <template v-slot:navigation-icon="{ onClick, index }">
@@ -494,7 +723,7 @@ watch(
         color="primary"
         icon="mdi-file-download"
         @click="saveStoryPdf"
-        :disable="querying || sortedFormattedStory.length == 0"
+        :disable="querying || !canSaveStoryPdf"
         padding="none"
       />
       <q-tooltip> Download story PDF </q-tooltip>

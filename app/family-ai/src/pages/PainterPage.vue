@@ -56,11 +56,11 @@ function handleUserInput() {
 
 async function handleUserQuery(query: string, model: string) {
   logger.debug(`Requesting image creation using ${model}.`);
-  let template = 'simple';
+  let template = 'flux_2_klein';
   if (model == 'z-image-turbo-fp8-e4m3fn.safetensors') {
     template = 'z_image_turbo';
   }
-  const image = await textToImage(query, model, template);
+  const image = await textToImage(query, model, template, true);
   querying.value = false;
   imageUrl.value = URL.createObjectURL(image);
 }
