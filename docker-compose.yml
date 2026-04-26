@@ -36,7 +36,7 @@ services:
       - family-ai
     ports:
       - 8185:80
-    restart: always
+    restart: unless-stopped
     secrets:
       - mistral_api_key
     volumes:
@@ -51,13 +51,12 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ["0"]
               capabilities: [gpu]
     networks:
       - family-ai
     ports:
       - 8186:80
-    restart: always
+    restart: unless-stopped
     volumes:
       - ./tts:/app/tts
       - ./tts/models:/root/.local/share/tts/
@@ -66,7 +65,7 @@ services:
   translate:
     container_name: translate
     build:
-      context: ./argos-translate
+      context: ./translate
     deploy:
       resources:
         reservations:
@@ -85,7 +84,7 @@ services:
     volumes:
       - ./translate:/app/argos-translate
       - ./translate/local:/root/.local
-    restart: always
+    restart: unless-stopped
 
   comfy:
     container_name: comfy
@@ -96,7 +95,6 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ["0"]
               capabilities: [gpu]
     env_file:
       - .env
@@ -104,7 +102,7 @@ services:
       - family-ai
     ports:
       - 8188:8188
-    restart: always
+    restart: unless-stopped
     volumes:
       - ~/app/models/:/app/ComfyUI/models/
       - ./comfy/output:/app/ComfyUI/output
@@ -124,7 +122,7 @@ services:
       - family-ai
     ports:
       - 9000:9000
-    restart: always
+    restart: unless-stopped
     volumes:
       - ./app:/app
 
