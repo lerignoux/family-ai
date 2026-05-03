@@ -591,7 +591,6 @@ watch(
           dark
           text-color="white"
           v-model="style"
-          emit-value
           :options="styles"
           label="Style:"
         >
