@@ -16,6 +16,7 @@ LABEL authors="Laurent Erignoux lerignoux@gmail.com"
 ARG DEBIAN_FRONTEND=noninteractive
 RUN --mount=type=cache,target=/root/.cache/apt apt-get update && apt-get install -y --no-install-recommends git python3-opencv
 RUN --mount=type=cache,target=/root/.cache/pip python3 -m pip install --upgrade pip
+RUN --mount=type=cache,target=/root/.cache/pip python3 -m pip install flash-attn --no-build-isolation # Fix SeedVR2-VideoUpscaler dependencies
 
 # Copy the virtual environment and ComfyUI from the first stage.
 COPY --from=build /app/ComfyUI /app/ComfyUI
